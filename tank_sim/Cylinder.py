@@ -12,3 +12,9 @@ class Cylinder(object):
         """
         self.height = height_m * 1000       # Tank height [=] mm
         self.diameter = diameter_m * 1000   # Tank diameter [=] mm
+
+    """"""
+
+    def generate_impact_coords(self, directional_coords, source_height_m):
+        # convert to mm
+        source_height = source_height_m * 1000      # [=] mm

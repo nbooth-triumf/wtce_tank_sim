@@ -1,9 +1,8 @@
-import numpy as np
 import csv
 import os
 
 
-class Dataset(object):
+class Histogram(object):
     """
     Base class for histograms of the angular distribution of light source
     """
@@ -12,10 +11,10 @@ class Dataset(object):
         """
         Constructor
         """
-        self.description = description      # Description of dataset
+        self.description = description      # cos(th) or phi with separation distance
+        self.file_path = file_path          # Full file path of histogram location
         self.sig_figs = sig_figs            # Number of decimal points for rounding
 
-        self.file_path = file_path                              # Full file path of image location
         self.file_name = os.path.splitext(self.file_path)[0]    # Name of file without file extension
         self.file_type = os.path.splitext(self.file_path)[1]    # Type of file (file extension only)
 
@@ -25,9 +24,11 @@ class Dataset(object):
 
         self.num_bins = None    # Number of bins in histogram
 
+        self.open_csv()
+
     """"""
 
-    def open_data_csv(self):
+    def open_csv(self):
         # Open csv and save each line as a data point
         with open(self.file_path, 'r') as csv_file:
             csv_reader = csv.reader(csv_file)
@@ -42,7 +43,7 @@ class Dataset(object):
 
     """"""
 
-    def normalize(self):
+    def create_normalized(self):
         # Sum up all bins in dataset
         summed_total = sum(self.data)
 
@@ -54,12 +55,15 @@ class Dataset(object):
 
     """"""
 
-    def cumulative(self):
+    def create_cumulative(self):
         # Iterate through each bin
         for n in range(self.num_bins):
             # Determine total of current bin and all bins to left
-            sum_to_bin = sum(self.normalized[0:(n + 1)])
+            sum_to = n + 1
+            sum_to_bin = sum(self.normalized[0:sum_to])
+
             # Round to avoid residual errors
             sum_to_bin = round(sum_to_bin, self.sig_figs)
+
             # Save
             self.cumulative.append(sum_to_bin)

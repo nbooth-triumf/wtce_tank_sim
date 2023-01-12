@@ -76,16 +76,16 @@ class Cylinder(object):
             angleBDP = source_phi
             segmentBD = segmentDP * np.cos(angleBDP)
             angleBOD = np.arctan(segmentBD / self.diameter)
-            angleAZE = 2 * angleBOD     # gamma
+            angleAZE = 2 * angleBOD                             # gamma
 
             # Find impact height h_impact, the length of semgentOC
             segmentBP = segmentDP * np.sin(angleBDP)
             segmentOB = np.sqrt(segmentBD**2 + self.diameter**2)
             anglePOB = np.arctan(segmentBP / segmentOB)
-            angleCAO = anglePOB     # Properties of parallel lines
+            angleCAO = anglePOB                                 # Properties of parallel lines
             angleAZC = np.pi - angleAZE
             segmentCA = self.diameter * np.sin(angleAZC / 2)    # Chord based trigonometry
-            segmentOC = segmentCA * np.tan(angleCAO)        # h_impact
+            segmentOC = segmentCA * np.tan(angleCAO)            # h_impact
 
             # Apply signage to gamma and h_impact
             gamma = horizontal * angleAZE
@@ -95,7 +95,7 @@ class Cylinder(object):
             # Determine if impact point A is within tank dimensions
             if 0 <= impact_height < self.height:
                 # Impact is on tank wall -> save collision coordinates
-                self.wall_impact_coords.append([gamma, impact_height])
+                self.wall_impact_coords.append([impact_height, gamma])
             else:
                 # Assume impact happens at point L on endcap. Triangle OCA is similar to new triangle OKL,
                 # where K is the edge of the tank directly below O. Remove signage as before.

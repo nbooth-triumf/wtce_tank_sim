@@ -35,9 +35,9 @@ myPhotons = Projectiles(description_projectile, num_photons)
 myPhotons.generate_direction_coords(pdf_cos_th=histCosTh.cumulative)
 photon_trajectories = myPhotons.coords_list
 
-# Create cylinder object of simulation tank
+# Create cylinder object of simulation tank and place an mPMT at a random height within it
 myTank = Cylinder(tank_height_m, tank_diam_m)
+mpmt_height_m = tank_height_m * np.random.uniform(0.0, 1.0)
 
-# Determine path of photons from arbitrary source height
-mpmt_height_m = tank_height_m * np.random.uniform()     # Random number between 0 and tank_height_m
-photon_impact_coords = myTank.generate_impact_coords(photon_trajectories, mpmt_height_m)
+# Determine impact coordinates for each photon trajectory
+myTank.generate_impact_coords(photon_trajectories, mpmt_height_m)

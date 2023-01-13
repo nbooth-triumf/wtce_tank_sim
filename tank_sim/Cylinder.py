@@ -1,5 +1,5 @@
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 class Cylinder(object):
     """
@@ -11,6 +11,7 @@ class Cylinder(object):
         Constructor - HEIGHT AND DIAMETER IN METRES
         """
         self.height = height_m * 1000       # Tank height [=] mm
+        self.z_limit = self.height / 2      # Assuming origin in centre of tank, min/max value of z
         self.diameter = diameter_m * 1000   # Tank diameter [=] mm
         self.radius = self.diameter / 2     # Tank radius [=] mm
 
@@ -19,11 +20,107 @@ class Cylinder(object):
         self.lid_impact_coords = []         # Initialize lid_impact_coords of [r, alpha]
         self.base_impact_coords = []        # Initialize base_impact_coords of [r, alpha]
 
+        self.troubleshooting_info = []      # Data structure to save relevant values if error occurs
+
     """"""
 
     def generate_impact_coords(self, directional_coords, source_height_m):
         # convert to mm
         source_height = source_height_m * 1000      # [=] mm
+        self.num_photons = len(directional_coords)
+
+        for n in range(self.num_photons):
+            # Extract data
+            [cos_th, phi] = directional_coords[n]
+            theta = np.arccos(cos_th)
+
+            # Project lightray L onto the XY plane and find gamma, the angle between L_XY and the x axis
+            gamma = np.arctan(np.tan(theta)*np.cos(phi))
+
+            # Use gamma to determine cartesian components of the impact point
+            delta_x = self.diameter * np.cos(gamma)**2
+            x = self.radius - delta_x       # Light Source on edge of tank along positive x axis
+            y = self.diameter * np.sin(gamma) * np.cos(gamma)
+            z = y / np.sin(theta)
+
+            # Determine if height of impact point is within tank
+            if np.abs(z) > self.z_limit:
+                # Impact point is outside tank.
+                # Use similar triangles to determine x' and y' at z = z_limit
+                delta_x_prime = delta_x * (self.z_limit / z)
+                x_prime = self.radius - delta_x_prime
+                y_prime = y * (self.z_limit / z)
+
+                # Convert [x_prime, y_prime, z_limit] to [r, alpha, z_limit]
+                r = np.sqrt(delta_x_prime**2 + y_prime**2)
+                alpha = np.arctan(y_prime / delta_x_prime)
+
+                # Store impact coords in correct data structure
+                if z > 0:
+                    self.lid_impact_coords.append([r, alpha, self.z_limit])
+                else:
+                    self.base_impact_coords.append([r, alpha, self.z_limit])
+
+            else:
+                # Impact point is inside tank
+                # Convert [x, y, z] to [r, alpha, z] and confirm r = self.radius
+                r = np.sqrt(x**2 + y**2)
+                alpha = np.arctan(y / x)
+                # Sanity check
+                if np.abs(r - self.radius) < 1:     # [=] mm
+                    self.wall_impact_coords.append([r, alpha, z])
+                else:
+                    print("Error encountered. Wall impact not at wall.")
+                    self.troubleshooting_info.append([cos_th, phi, x, y, z])
+
+    """"""
+
+    def create_graphic(self, file_name, show=False):
+        # Put data into plottable form
+        # Lid
+        lid_radii = []
+        lid_alpha = []
+        for n in range(len(self.lid_impact_coords)):
+            [radius, alpha, z] = self.lid_impact_coords[n]
+            lid_radii.append(radius)
+            lid_alpha.append(alpha)
+
+        # Wall
+        wall_alpha = []
+        wall_height = []
+        for n in range(len(self.wall_impact_coords)):
+            [radius, alpha, z] = self.wall_impact_coords[n]
+            wall_alpha.append(alpha)
+            wall_height.append(z)
+
+        # Base
+        base_radii = []
+        base_alpha = []
+        for n in range(len(self.base_impact_coords)):
+            [radius, alpha, z] = self.base_impact_coords[n]
+            base_radii.append(radius)
+            base_alpha.append(alpha)
+
+        # Plot
+        fig = plt.figure()
+        lid = fig.add_subplot(3, 1, 1, projection='polar')
+        lid.scatter(lid_alpha, lid_radii)
+        wall = fig.add_subplot(3, 1, 2)
+        wall.scatter(wall_alpha, wall_height)
+        plt.xlim(-np.pi, np.pi)
+        base = fig.add_subplot(3, 1, 3, projection='polar')
+        base.scatter(base_alpha, base_radii)
+
+        if show:
+            fig.show()
+        fig.savefig(file_name)
+        plt.close()
+
+    """"""
+
+    def brute_force_coords(self, directional_coords, source_height_m):
+        # convert to mm
+        source_height = source_height_m * 1000  # [=] mm
         self.num_photons = len(directional_coords)
 
         # iterate through each photon coordinates

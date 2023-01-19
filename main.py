@@ -37,7 +37,7 @@ photon_trajectories = myPhotons.coords_list
 
 # Create cylinder object of simulation tank and place an mPMT at a random height within it
 myTank = Cylinder(tank_height_m, tank_diam_m)
-mpmt_height_m = tank_height_m * np.random.uniform(0.0, 1.0)
+mpmt_height_m = tank_height_m * np.random.uniform(-0.5, 0.5)
 
 # Determine impact coordinates for each photon trajectory
 myTank.generate_impact_coords(photon_trajectories, mpmt_height_m)

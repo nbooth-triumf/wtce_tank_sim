@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 class Cylinder(object):
     """
     Base class for defining tank region and corresponding geometry
@@ -32,31 +33,51 @@ class Cylinder(object):
         for n in range(self.num_photons):
             # Extract data
             [cos_th, phi] = directional_coords[n]
+            # cos_th = 1     # Remove
             theta = np.arccos(cos_th)
 
-            # Project lightray L onto the XY plane and find gamma, the angle between L_XY and the x axis
-            gamma = np.arctan(np.tan(theta)*np.cos(phi))
+            # Define unit vectors in the source (prime) reference frame from given theta and phi
+            x_prime_hat = np.sin(theta)*np.sin(phi)
+            y_prime_hat = np.sin(theta)*np.cos(phi)
+            z_prime_hat = np.cos(theta)
 
-            # Use gamma to determine cartesian components of the impact point
-            delta_x = self.diameter * np.cos(gamma)**2
-            x = self.radius - delta_x       # Light Source on edge of tank along positive x axis
-            y = self.diameter * np.sin(gamma) * np.cos(gamma)
-            z = y / np.sin(theta)
+            # Rotate and shift unit vector from source frame to tank frame
+            x_hat = y_prime_hat
+            y_hat = z_prime_hat
+            z_hat = x_prime_hat
+
+            # Project lightray onto the XY plane and determine polynomial y = m*x + b
+            # Determine intersection of polynomial and circle x**2 + y*2 = R**2, where R is the known radius
+
+            # Account for limits
+            if theta == 0 or np.abs(phi) == np.pi/2:
+                x_impact = 0
+                y_impact = self.radius
+            # General
+            else:
+                m_xy = 1 / (np.tan(theta)*np.sin(phi))
+                x_impact = 2 * m_xy * self.radius / (m_xy**2 + 1)
+                y_impact = self.radius * (m_xy**2 - 1) / (m_xy**2 + 1)
+
+            # Use similar triangles and unit vectors to obtain z
+            z_impact = source_height - self.radius * np.tan(theta) * np.sin(phi)
 
             # Determine if height of impact point is within tank
-            if np.abs(z) > self.z_limit:
+            if np.abs(z_impact) > self.z_limit:
                 # Impact point is outside tank.
-                # Use similar triangles to determine x' and y' at z = z_limit
-                delta_x_prime = delta_x * (self.z_limit / z)
-                x_prime = self.radius - delta_x_prime
-                y_prime = y * (self.z_limit / z)
+                # Use similar triangles to determine x_cap and y_cap at z = z_limit
+                x_cap = x_impact * self.z_limit / np.abs(z_impact)
+                y_cap = (y_impact + self.radius) * self.z_limit / np.abs(z_impact) - self.radius
 
-                # Convert [x_prime, y_prime, z_limit] to [r, alpha, z_limit]
-                r = np.sqrt(delta_x_prime**2 + y_prime**2)
-                alpha = np.arctan(y_prime / delta_x_prime)
+                # Convert [x_cap, y_cap, z_limit] to [r, alpha, z_limit]
+                r = np.sqrt(x_cap**2 + y_cap**2)
+                if x_cap == 0:
+                    alpha = 0
+                else:
+                    alpha = np.arctan(y_cap / x_cap)
 
                 # Store impact coords in correct data structure
-                if z > 0:
+                if z_impact > 0:
                     self.lid_impact_coords.append([r, alpha, self.z_limit])
                 else:
                     self.base_impact_coords.append([r, alpha, self.z_limit])
@@ -64,14 +85,17 @@ class Cylinder(object):
             else:
                 # Impact point is inside tank
                 # Convert [x, y, z] to [r, alpha, z] and confirm r = self.radius
-                r = np.sqrt(x**2 + y**2)
-                alpha = np.arctan(y / x)
+                r = np.sqrt(x_impact**2 + y_impact**2)
+                if x_impact == 0:
+                    alpha = 0
+                else:
+                    alpha = np.arctan(y_impact / x_impact)
                 # Sanity check
                 if np.abs(r - self.radius) < 1:     # [=] mm
-                    self.wall_impact_coords.append([r, alpha, z])
+                    self.wall_impact_coords.append([r, alpha, z_impact])
                 else:
                     print("Error encountered. Wall impact not at wall.")
-                    self.troubleshooting_info.append([cos_th, phi, x, y, z])
+                    self.troubleshooting_info.append([cos_th, phi, x_impact, y_impact, z_impact])
 
     """"""
 
@@ -108,6 +132,8 @@ class Cylinder(object):
         wall = fig.add_subplot(3, 1, 2)
         wall.scatter(wall_alpha, wall_height)
         plt.xlim(-np.pi, np.pi)
+        plt.ylim(-self.z_limit, self.z_limit)
+        plt.grid()
         base = fig.add_subplot(3, 1, 3, projection='polar')
         base.scatter(base_alpha, base_radii)
 

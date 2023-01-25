@@ -33,7 +33,6 @@ class Cylinder(object):
         for n in range(self.num_photons):
             # Extract data
             [cos_th, phi] = directional_coords[n]
-            # cos_th = 1     # Remove
             theta = np.arccos(cos_th)
 
             # Define unit vectors in the source (prime) reference frame from given theta and phi
@@ -55,12 +54,30 @@ class Cylinder(object):
                 y_impact = self.radius
             # General
             else:
-                m_xy = 1 / (np.tan(theta)*np.sin(phi))
+                m_xy = y_hat / x_hat
                 x_impact = 2 * m_xy * self.radius / (m_xy**2 + 1)
-                y_impact = self.radius * (m_xy**2 - 1) / (m_xy**2 + 1)
+                y_impact = m_xy * x_impact - self.radius
+
+            # Troubleshooting - comment out by default
+            """
+            r_math = np.sqrt(x_impact**2 + y_impact**2)
+            r_actual = self.radius
+            if np.abs(r_math - r_actual) > 0.001:
+                print("impact coordinate match is incorrect")
+                break
+            """
 
             # Use similar triangles and unit vectors to obtain z
-            z_impact = source_height - self.radius * np.tan(theta) * np.sin(phi)
+            delta_z_x = x_impact * (z_hat / x_hat)
+            delta_z_y = (y_impact + self.radius) * (z_hat / y_hat)
+            if np.abs(delta_z_y - delta_z_x) > 0.001:
+                # If these do not match, the geometry/vectors are incorrect
+                print("impact coordinate math is incorrect")
+                break
+            else:
+                # If they do match, save as the correct value
+                delta_z = delta_z_x
+            z_impact = source_height + delta_z
 
             # Determine if height of impact point is within tank
             if np.abs(z_impact) > self.z_limit:
@@ -71,10 +88,7 @@ class Cylinder(object):
 
                 # Convert [x_cap, y_cap, z_limit] to [r, alpha, z_limit]
                 r = np.sqrt(x_cap**2 + y_cap**2)
-                if x_cap == 0:
-                    alpha = 0
-                else:
-                    alpha = np.arctan(y_cap / x_cap)
+                alpha = np.arctan2(y_cap, x_cap)
 
                 # Store impact coords in correct data structure
                 if z_impact > 0:
@@ -86,12 +100,10 @@ class Cylinder(object):
                 # Impact point is inside tank
                 # Convert [x, y, z] to [r, alpha, z] and confirm r = self.radius
                 r = np.sqrt(x_impact**2 + y_impact**2)
-                if x_impact == 0:
-                    alpha = 0
-                else:
-                    alpha = np.arctan(y_impact / x_impact)
+                alpha = np.arctan2(x_impact, y_impact)
+
                 # Sanity check
-                if np.abs(r - self.radius) < 1:     # [=] mm
+                if np.abs(r - self.radius) < 0.001:     # [=] mm
                     self.wall_impact_coords.append([r, alpha, z_impact])
                 else:
                     print("Error encountered. Wall impact not at wall.")

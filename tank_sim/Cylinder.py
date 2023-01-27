@@ -21,6 +21,13 @@ class Cylinder(object):
         self.lid_impact_coords = []         # Initialize lid_impact_coords of [r, alpha]
         self.base_impact_coords = []        # Initialize base_impact_coords of [r, alpha]
 
+        self.lid_radii = []                 # Initialize relevant data structures for plotting
+        self.lid_alpha = []                 # on individual axes for lid, wall, and base
+        self.wall_alpha = []
+        self.wall_height = []
+        self.base_radii = []
+        self.base_alpha = []
+
         self.troubleshooting_info = []      # Data structure to save relevant values if error occurs
 
     """"""
@@ -88,7 +95,7 @@ class Cylinder(object):
 
                 # Convert [x_cap, y_cap, z_limit] to [r, alpha, z_limit]
                 r = np.sqrt(x_cap**2 + y_cap**2)
-                alpha = np.arctan2(y_cap, x_cap)
+                alpha = np.arctan2(y_cap, x_cap) - np.pi/2  # Rotate from x-axis centric to y-axis centric
 
                 # Store impact coords in correct data structure
                 if z_impact > 0:
@@ -111,43 +118,68 @@ class Cylinder(object):
 
     """"""
 
-    def create_graphic(self, file_name, show=False):
-        # Put data into plottable form
-        # Lid
-        lid_radii = []
-        lid_alpha = []
-        for n in range(len(self.lid_impact_coords)):
-            [radius, alpha, z] = self.lid_impact_coords[n]
-            lid_radii.append(radius)
-            lid_alpha.append(alpha)
-
-        # Wall
-        wall_alpha = []
-        wall_height = []
-        for n in range(len(self.wall_impact_coords)):
-            [radius, alpha, z] = self.wall_impact_coords[n]
-            wall_alpha.append(alpha)
-            wall_height.append(z)
-
-        # Base
-        base_radii = []
-        base_alpha = []
-        for n in range(len(self.base_impact_coords)):
-            [radius, alpha, z] = self.base_impact_coords[n]
-            base_radii.append(radius)
-            base_alpha.append(alpha)
+    def create_graphics(self, file_name, show=False):
+        # Prepare data
+        self.isolate_axes()     # Extract each individual axes as a separate dataset
+        self.make_meshes()      # Create 2D arrays in polar, cart, polar (for lid, wall, base, respectively)
 
         # Plot
-        fig = plt.figure()
+        self.make_scatter_plot(file_name, show)
+        self.make_heatmap(file_name, show)
+
+    """"""
+
+    def isolate_axes(self):
+        # Put data into plottable form by separating each axes into a distinct data structure
+        # Lid
+        for n in range(len(self.lid_impact_coords)):
+            # z is constant, extract r and alpha coords
+            [radius, alpha, z] = self.lid_impact_coords[n]
+            self.lid_radii.append(radius)
+            self.lid_alpha.append(alpha)
+
+        # Wall
+        for n in range(len(self.wall_impact_coords)):
+            # r is constant, extract alpha and z coords
+            [radius, alpha, z] = self.wall_impact_coords[n]
+            self.wall_alpha.append(alpha)
+            self.wall_height.append(z)
+
+        # Base
+        for n in range(len(self.base_impact_coords)):
+            # z is constant, extract r and alpha coords
+            [radius, alpha, z] = self.base_impact_coords[n]
+            self.base_radii.append(radius)
+            self.base_alpha.append(alpha)
+
+    """"""
+
+    def make_meshes(self):
+        print("hello world")
+
+    """"""
+
+    def make_scatter_plot(self, file_name, show):
+        # Initialize whole figure
+        fig = plt.figure(figsize=(10, 10))
+
+        # Create lid subplot
         lid = fig.add_subplot(3, 1, 1, projection='polar')
-        lid.scatter(lid_alpha, lid_radii)
+        lid.set_theta_zero_location("S")
+        lid.scatter(self.lid_alpha, self.lid_radii)
+
+        # Create wall subplot
         wall = fig.add_subplot(3, 1, 2)
-        wall.scatter(wall_alpha, wall_height)
+        wall.scatter(self.wall_alpha, self.wall_height)
         plt.xlim(-np.pi, np.pi)
         plt.ylim(-self.z_limit, self.z_limit)
         plt.grid()
+
+        # Create base subplot
         base = fig.add_subplot(3, 1, 3, projection='polar')
-        base.scatter(base_alpha, base_radii)
+        base.set_theta_zero_location("N")
+        base.scatter(self.base_alpha, self.base_radii)
+        fig.tight_layout()
 
         if show:
             fig.show()
@@ -156,109 +188,7 @@ class Cylinder(object):
 
     """"""
 
-    def brute_force_coords(self, directional_coords, source_height_m):
-        # convert to mm
-        source_height = source_height_m * 1000  # [=] mm
-        self.num_photons = len(directional_coords)
-
-        # iterate through each photon coordinates
-        for n in range(self.num_photons):
-            # Extract data
-            [cos_th, phi] = directional_coords[n]
-            source_theta = np.arccos(cos_th)
-
-            # Determine quadrant of impact from phi. It is easier to determine the impact location
-            # in quadrant 1 then assign the correct signage than to track signage as we go.
-            source_phi = phi        # Initialize
-            horizontal = 0          # Initialize
-            vertical = 0            # Initialize
-            if 0 <= phi < np.pi/2:
-                # Stay in quadrant 1
-                horizontal = 1
-                vertical = 1
-                source_phi = source_phi
-            elif np.pi/2 <= phi < np.pi:
-                # Move from quadrant 2 to 1
-                horizontal = -1
-                vertical = 1
-                source_phi = np.pi - source_phi
-            elif -np.pi/2 <= phi < 0:
-                # Move from quadrant 3 to 1
-                horizontal = 1
-                vertical = -1
-                source_phi = np.abs(source_phi)
-            elif -np.pi <= phi < -np.pi/2:
-                # Move from quadrant 4 to 1
-                horizontal = -1
-                vertical = -1
-                source_phi = np.pi - np.abs(source_phi)
-            else:
-                print("Invalid phi angle.")
-
-            """  
-            Point D is directly opposite the source O, separated by the diameter of the tank. Following
-            theta and phi, the lightray (OP) from source O will hit the tangent plane of point D at point P,
-            creating a right triangle OBP with point B on D's tangent plane. This lightray intersects with
-            the tank cylinder at an point A, creating another right triangle OCA with point C directly
-            above the source O and at the same height of intersection point A.
-            
-            Point A can therefore be defined by a height h, the distance between O and A along the z axis,
-            and an angle gamma, the number of radians between the radius to point A and the diameter OD.
-            """
-
-            # Find angle gamma, the radians of angleAZE, where E is directly above D and across from C.
-            segmentDP = self.diameter * np.tan(source_theta)
-            angleBDP = source_phi
-            segmentBD = segmentDP * np.cos(angleBDP)
-            angleBOD = np.arctan(segmentBD / self.diameter)
-            angleAZE = 2 * angleBOD                             # gamma
-
-            # Find impact height h_impact, the length of semgentOC
-            segmentBP = segmentDP * np.sin(angleBDP)
-            segmentOB = np.sqrt(segmentBD**2 + self.diameter**2)
-            anglePOB = np.arctan(segmentBP / segmentOB)
-            angleCAO = anglePOB                                 # Properties of parallel lines
-            angleAZC = np.pi - angleAZE
-            segmentCA = self.diameter * np.sin(angleAZC / 2)    # Chord based trigonometry
-            segmentOC = segmentCA * np.tan(angleCAO)            # h_impact
-
-            # Apply signage to gamma and h_impact
-            gamma = horizontal * angleAZE
-            h_impact = vertical * segmentOC
-            impact_height = source_height + h_impact  # Impact height relative to bottom of tank
-
-            # Determine if impact point A is within tank dimensions
-            if 0 <= impact_height < self.height:
-                # Impact is on tank wall -> save collision coordinates
-                self.wall_impact_coords.append([impact_height, gamma])
-            else:
-                # Assume impact happens at point L on endcap. Triangle OCA is similar to new triangle OKL,
-                # where K is the edge of the tank directly below O. Remove signage as before.
-                if impact_height < 0:
-                    segmentOK = source_height
-                else:
-                    segmentOK = self.height - source_height
-
-                segmentKL = segmentCA * (segmentOK / segmentOC)
-
-                # Angle between segmentKL and the diameter of the endcap is equal to angleBOD, so
-                # components can be found
-                segmentKL_1 = segmentKL * np.sin(angleBOD)
-                segmentKL_2 = segmentKL * np.cos(angleBOD)
-
-                # Point L is therefore offset from the z axis by segmentKL_1 in the x' direction and
-                # by segmentKL_2 - tank_radius in the y' direction
-                r_x = segmentKL_1
-                r_y = segmentKL_2 - self.radius
-
-                # Determine impact coords [r, alpha] on endcaps
-                r = np.sqrt(r_x**2 + r_y**2)
-                alpha = np.arctan(r_y/r_x)
-
-                # Append impact coords to correct data structure
-                if impact_height < 0:
-                    self.base_impact_coords.append([r, alpha])
-                else:
-                    self.lid_impact_coords.append([r, alpha])
+    def make_heatmap(self, file_name, show):
+        print("hewwo world")
 
     """"""

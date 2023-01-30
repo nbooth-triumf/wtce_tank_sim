@@ -28,7 +28,7 @@ histPhi.create_cumulative()
 
 # Create Projectiles object of the extracted histograms
 description_projectile = "Direction Information for simulated Photons"
-num_photons = 1 * 10**6     # one million photons as default
+num_photons = 1 * 10**4     # one million photons as default
 myPhotons = Projectiles(description_projectile, num_photons)
 
 # Generate arbitrary number of photons using Monte Carlo method

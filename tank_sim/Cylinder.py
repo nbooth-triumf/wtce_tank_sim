@@ -28,6 +28,13 @@ class Cylinder(object):
         self.base_radii = []
         self.base_alpha = []
 
+        self.lid_r = None
+        self.lid_a = None
+        self.wall_a = None
+        self.wall_z = None
+        self.base_r = None
+        self.base_a = None
+
         self.troubleshooting_info = []      # Data structure to save relevant values if error occurs
 
     """"""
@@ -154,8 +161,16 @@ class Cylinder(object):
 
     """"""
 
-    def make_meshes(self):
-        print("hello world")
+    def make_meshes(self, num_elements=100):
+        # Initialize span of each dimension
+        r_span = np.linspace(0, self.radius, num_elements)
+        alpha_span = np.linspace(0, 2*np.pi, num_elements)
+        z_span = np.linspace(-self.height/2, self.height/2, num_elements)
+
+        # Mesh
+        self.lid_r, self.lid_a = np.meshgrid(r_span, alpha_span)
+        self.wall_a, self.wall_z = np.meshgrid(alpha_span, z_span)
+        self.base_r, self.base_a = np.meshgrid(r_span, alpha_span)
 
     """"""
 
@@ -167,6 +182,7 @@ class Cylinder(object):
         lid = fig.add_subplot(3, 1, 1, projection='polar')
         lid.set_theta_zero_location("S")
         lid.scatter(self.lid_alpha, self.lid_radii)
+        self.convert_polar_xticks_to_radians(lid)
 
         # Create wall subplot
         wall = fig.add_subplot(3, 1, 2)
@@ -179,6 +195,7 @@ class Cylinder(object):
         base = fig.add_subplot(3, 1, 3, projection='polar')
         base.set_theta_zero_location("N")
         base.scatter(self.base_alpha, self.base_radii)
+        self.convert_polar_xticks_to_radians(base)
         fig.tight_layout()
 
         if show:
@@ -190,5 +207,32 @@ class Cylinder(object):
 
     def make_heatmap(self, file_name, show):
         print("hewwo world")
+
+    """"""
+
+    def format_radians_label(self, float_in):
+        # Converts a float value in radians into a
+        # string representation of that float
+        string_out = str(float_in / np.pi) + "π"
+
+        return string_out
+
+    """"""
+
+    def convert_polar_xticks_to_radians(self, ax):
+        # Converts x-tick labels from degrees to radians
+
+        # Get the x-tick positions (returns in radians)
+        label_positions = ax.get_xticks()
+
+        # Convert to a list since we want to change the type of the elements
+        labels = list(label_positions)
+
+        # Format each label
+        labels = [self.format_radians_label(angle) for angle in labels]
+
+        # Keep xtick locations the same but change labels to new labels
+        ax.set_xticks(label_positions)
+        ax.set_xticklabels(labels)
 
     """"""

@@ -43,5 +43,5 @@ mpmt_height_m = 0  # tank_height_m * np.random.uniform(-0.5, 0.5)
 myTank.generate_impact_coords(photon_trajectories, mpmt_height_m)
 
 # Create graphic
-graphic_file = path_header + "tank_sim_graphic.jpg"
+graphic_file = path_header + "tank_sim"
 myTank.create_graphics(graphic_file)

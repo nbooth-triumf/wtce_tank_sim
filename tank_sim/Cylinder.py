@@ -35,6 +35,10 @@ class Cylinder(object):
         self.base_r = None
         self.base_a = None
 
+        self.lid_counts = None
+        self.wall_counts = None
+        self.base_counts = None
+
         self.troubleshooting_info = []      # Data structure to save relevant values if error occurs
 
     """"""
@@ -131,9 +135,17 @@ class Cylinder(object):
         self.make_meshes()      # Create 2D arrays in polar, cart, polar (for lid, wall, base, respectively)
 
         # Plot
-        self.make_scatter_plot(file_name, show)
-        self.make_heatmap(file_name, show)
-
+        scatter_name = file_name + "_scatter.jpg"
+        self.make_scatter_plot(scatter_name, show)
+        heatmap_name = file_name + "_heatmap.jpg"
+        self.make_heatmap(heatmap_name, show)
+        """
+        plt.imshow(self.wall_counts)
+        ax = plt.gca()
+        ax.set_ylim(ax.get_ylim()[::-1])
+        plt.colorbar()
+        plt.savefig(heatmap_name)
+        """
     """"""
 
     def isolate_axes(self):
@@ -164,13 +176,71 @@ class Cylinder(object):
     def make_meshes(self, num_elements=100):
         # Initialize span of each dimension
         r_span = np.linspace(0, self.radius, num_elements)
-        alpha_span = np.linspace(0, 2*np.pi, num_elements)
+        r_bin_width = self.radius / num_elements
+        alpha_span = np.linspace(-np.pi, np.pi, num_elements)
+        alpha_bin_width = 2*np.pi / num_elements
         z_span = np.linspace(-self.height/2, self.height/2, num_elements)
+        z_bin_width = self.height / num_elements
 
         # Mesh
         self.lid_r, self.lid_a = np.meshgrid(r_span, alpha_span)
         self.wall_a, self.wall_z = np.meshgrid(alpha_span, z_span)
         self.base_r, self.base_a = np.meshgrid(r_span, alpha_span)
+
+        # Propagate count values into meshes
+        # Lid
+        self.lid_counts = np.zeros((num_elements, num_elements))
+        for n in range(len(self.lid_impact_coords)):
+            # r_bin
+            r_coord = self.lid_radii[n]
+            r_bin = int(np.floor(r_coord / r_bin_width))
+            if r_bin == num_elements:
+                r_bin = num_elements - 1            # Account for edges
+
+            # alpha_bin
+            alpha_coord = self.lid_alpha[n]
+            alpha_bin = int(np.floor((alpha_coord + np.pi) / alpha_bin_width))
+            if alpha_bin == num_elements:
+                alpha_bin = num_elements - 1        # Account for edges
+
+            # add photon to [alpha_bin, r_bin]
+            self.lid_counts[alpha_bin, r_bin] = self.lid_counts[alpha_bin, r_bin] + 1
+
+        # Wall
+        self.wall_counts = np.zeros((num_elements, num_elements))
+        for n in range(len(self.wall_impact_coords)):
+            # alpha_bin
+            alpha_coord = self.wall_alpha[n]
+            alpha_bin = int(np.floor((alpha_coord + np.pi) / alpha_bin_width))
+            if alpha_bin == num_elements:
+                alpha_bin = num_elements - 1        # Account for edges
+
+            # z_bin
+            z_coord = self.wall_height[n]
+            z_bin = int(np.floor((z_coord + self.height/2) / z_bin_width))
+            if z_bin == num_elements:
+                z_bin = num_elements - 1        # Account for edges
+
+            # add photon to [alpha_bin, z_bin]
+            self.wall_counts[z_bin, alpha_bin] = self.wall_counts[z_bin, alpha_bin] + 1
+
+        # Base
+        self.base_counts = np.zeros((num_elements, num_elements))
+        for n in range(len(self.base_impact_coords)):
+            # r_bin
+            r_coord = self.base_radii[n]
+            r_bin = int(np.floor(r_coord / r_bin_width))
+            if r_bin == num_elements:
+                r_bin = num_elements - 1  # Account for edges
+
+            # alpha_bin
+            alpha_coord = self.base_alpha[n]
+            alpha_bin = int(np.floor((alpha_coord + np.pi) / alpha_bin_width))
+            if alpha_bin == num_elements:
+                alpha_bin = num_elements - 1  # Account for edges
+
+            # add photon to [alpha_bin, r_bin]
+            self.base_counts[alpha_bin, r_bin] = self.base_counts[alpha_bin, r_bin] + 1
 
     """"""
 
@@ -206,7 +276,36 @@ class Cylinder(object):
     """"""
 
     def make_heatmap(self, file_name, show):
-        print("hewwo world")
+        # Initialize whole figure
+        fig = plt.subplots(3, 1, figsize=(16, 9), gridspec_kw={'height_ratios': [1, 2, 1]})
+
+        # Create lid subplot
+        lid = plt.subplot(3, 1, 1, projection='polar')
+        lid.set_theta_zero_location("S")
+        top = lid.pcolormesh(self.lid_a, self.lid_r, self.lid_counts, cmap='Reds')
+        self.convert_polar_xticks_to_radians(lid)
+
+        # Create wall subplot
+        wall = plt.subplot(3, 1, 2)
+        mid = wall.imshow(self.wall_counts, cmap='Reds')
+        wall.set_ylim(wall.get_ylim()[::-1])
+        plt.grid()
+
+        # Create base subplot
+        base = plt.subplot(3, 1, 3, projection='polar')
+        base.set_theta_zero_location("N")
+        bot = base.pcolormesh(self.base_a, self.base_r, self.base_counts, cmap='Reds')
+        self.convert_polar_xticks_to_radians(base)
+        """
+        fig.colorbar(top, ax=ax1)
+        fig.colorbar(mid, ax=ax2)
+        fig.colorbar(bot, ax=ax3)
+        """
+        plt.tight_layout()
+        if show:
+            plt.show()
+        plt.savefig(file_name)
+        plt.close()
 
     """"""
 

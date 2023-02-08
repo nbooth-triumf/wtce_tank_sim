@@ -38,6 +38,7 @@ class Cylinder(object):
         self.lid_counts = None
         self.wall_counts = None
         self.base_counts = None
+        self.counts_max = None
 
         self.troubleshooting_info = []      # Data structure to save relevant values if error occurs
 
@@ -177,8 +178,9 @@ class Cylinder(object):
         # Initialize span of each dimension
         r_span = np.linspace(0, self.radius, num_elements)
         r_bin_width = self.radius / num_elements
-        alpha_span = np.linspace(-np.pi, np.pi, num_elements)
-        alpha_bin_width = 2*np.pi / num_elements
+        alpha_elements = 3 * num_elements       # to scale wall x-axis appropriately
+        alpha_span = np.linspace(-np.pi, np.pi, alpha_elements)
+        alpha_bin_width = 2*np.pi / alpha_elements
         z_span = np.linspace(-self.height/2, self.height/2, num_elements)
         z_bin_width = self.height / num_elements
 
@@ -189,7 +191,7 @@ class Cylinder(object):
 
         # Propagate count values into meshes
         # Lid
-        self.lid_counts = np.zeros((num_elements, num_elements))
+        self.lid_counts = np.zeros((alpha_elements, num_elements))
         for n in range(len(self.lid_impact_coords)):
             # r_bin
             r_coord = self.lid_radii[n]
@@ -200,20 +202,20 @@ class Cylinder(object):
             # alpha_bin
             alpha_coord = self.lid_alpha[n]
             alpha_bin = int(np.floor((alpha_coord + np.pi) / alpha_bin_width))
-            if alpha_bin == num_elements:
-                alpha_bin = num_elements - 1        # Account for edges
+            if alpha_bin == alpha_elements:
+                alpha_bin = alpha_elements - 1        # Account for edges
 
             # add photon to [alpha_bin, r_bin]
             self.lid_counts[alpha_bin, r_bin] = self.lid_counts[alpha_bin, r_bin] + 1
 
         # Wall
-        self.wall_counts = np.zeros((num_elements, num_elements))
+        self.wall_counts = np.zeros((num_elements, alpha_elements))
         for n in range(len(self.wall_impact_coords)):
             # alpha_bin
             alpha_coord = self.wall_alpha[n]
             alpha_bin = int(np.floor((alpha_coord + np.pi) / alpha_bin_width))
-            if alpha_bin == num_elements:
-                alpha_bin = num_elements - 1        # Account for edges
+            if alpha_bin == alpha_elements:
+                alpha_bin = alpha_elements - 1        # Account for edges
 
             # z_bin
             z_coord = self.wall_height[n]
@@ -221,11 +223,11 @@ class Cylinder(object):
             if z_bin == num_elements:
                 z_bin = num_elements - 1        # Account for edges
 
-            # add photon to [alpha_bin, z_bin]
+            # add photon to [z_bin, alpha_bin]
             self.wall_counts[z_bin, alpha_bin] = self.wall_counts[z_bin, alpha_bin] + 1
 
         # Base
-        self.base_counts = np.zeros((num_elements, num_elements))
+        self.base_counts = np.zeros((alpha_elements, num_elements))
         for n in range(len(self.base_impact_coords)):
             # r_bin
             r_coord = self.base_radii[n]
@@ -236,8 +238,8 @@ class Cylinder(object):
             # alpha_bin
             alpha_coord = self.base_alpha[n]
             alpha_bin = int(np.floor((alpha_coord + np.pi) / alpha_bin_width))
-            if alpha_bin == num_elements:
-                alpha_bin = num_elements - 1  # Account for edges
+            if alpha_bin == alpha_elements:
+                alpha_bin = alpha_elements - 1  # Account for edges
 
             # add photon to [alpha_bin, r_bin]
             self.base_counts[alpha_bin, r_bin] = self.base_counts[alpha_bin, r_bin] + 1
@@ -253,6 +255,7 @@ class Cylinder(object):
         lid.set_theta_zero_location("S")
         lid.scatter(self.lid_alpha, self.lid_radii)
         self.convert_polar_xticks_to_radians(lid)
+        lid.set_rlabel_position(135)
 
         # Create wall subplot
         wall = fig.add_subplot(3, 1, 2)
@@ -266,6 +269,8 @@ class Cylinder(object):
         base.set_theta_zero_location("N")
         base.scatter(self.base_alpha, self.base_radii)
         self.convert_polar_xticks_to_radians(base)
+        base.set_rlabel_position(135)
+
         fig.tight_layout()
 
         if show:
@@ -276,31 +281,39 @@ class Cylinder(object):
     """"""
 
     def make_heatmap(self, file_name, show):
+        # Find maximum counts in the simulation
+        lid_max = np.amax(self.lid_counts)
+        wall_max = np.amax(self.wall_counts)
+        base_max = np.amax(self.base_counts)
+        self.counts_max = max(lid_max, wall_max, base_max)
+
         # Initialize whole figure
-        fig = plt.subplots(3, 1, figsize=(16, 9), gridspec_kw={'height_ratios': [1, 2, 1]})
+        fig = plt.figure(figsize=(12, 12))
+
+        lid = plt.subplot2grid((3, 3), (0, 1), projection='polar')
+        wall = plt.subplot2grid((3, 3), (1, 0), colspan=3)
+        base = plt.subplot2grid((3, 3), (2, 1), projection='polar')
 
         # Create lid subplot
-        lid = plt.subplot(3, 1, 1, projection='polar')
         lid.set_theta_zero_location("S")
-        top = lid.pcolormesh(self.lid_a, self.lid_r, self.lid_counts, cmap='Reds')
+        lid.pcolormesh(self.lid_a, self.lid_r, self.lid_counts, vmin=0, vmax=lid_max, cmap='viridis')
         self.convert_polar_xticks_to_radians(lid)
+        lid.set_rlabel_position(135)
 
         # Create wall subplot
-        wall = plt.subplot(3, 1, 2)
-        mid = wall.imshow(self.wall_counts, cmap='Reds')
+        mid = wall.imshow(self.wall_counts, vmin=0, vmax=wall_max, cmap='viridis')
         wall.set_ylim(wall.get_ylim()[::-1])
         plt.grid()
 
         # Create base subplot
-        base = plt.subplot(3, 1, 3, projection='polar')
         base.set_theta_zero_location("N")
-        bot = base.pcolormesh(self.base_a, self.base_r, self.base_counts, cmap='Reds')
+        base.pcolormesh(self.base_a, self.base_r, self.base_counts, vmin=0, vmax=base_max, cmap='viridis')
         self.convert_polar_xticks_to_radians(base)
-        """
-        fig.colorbar(top, ax=ax1)
-        fig.colorbar(mid, ax=ax2)
-        fig.colorbar(bot, ax=ax3)
-        """
+        base.set_rlabel_position(135)
+
+        cbar_ax = fig.add_axes([0.8, 0.05, 0.05, 0.25])
+        fig.colorbar(mid, cax=cbar_ax)
+
         plt.tight_layout()
         if show:
             plt.show()
@@ -333,5 +346,33 @@ class Cylinder(object):
         # Keep xtick locations the same but change labels to new labels
         ax.set_xticks(label_positions)
         ax.set_xticklabels(labels)
+
+    """"""
+
+    def create_intensity(self, file_name, show=False):
+        intensities = []
+        for n in range(len(self.lid_counts)):
+            for m in range(len(self.lid_counts[n])):
+                counts = int(self.lid_counts[n][m])
+                if counts != 0:     intensities.append(counts)
+
+        for n in range(len(self.wall_counts)):
+            for m in range(len(self.wall_counts[n])):
+                counts = int(self.wall_counts[n][m])
+                if counts != 0:     intensities.append(counts)
+
+        for n in range(len(self.base_counts)):
+            for m in range(len(self.base_counts[n])):
+                counts = int(self.base_counts[n][m])
+                if counts != 0:     intensities.append(counts)
+
+        plt.hist(intensities)
+        plt.grid()
+        plt.title('Intensity Histogram')
+        plt.xlabel('Number of Photons')
+        plt.ylabel('Number of Bins')
+        if show:
+            plt.show()
+        plt.savefig(file_name)
 
     """"""

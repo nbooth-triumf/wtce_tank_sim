@@ -11,9 +11,9 @@ tank_height_m = 4.0      # metres
 tank_diam_m = 4.1        # metres
 
 # Import csv of cos(theta) and create pdfs
-description_cos_th = "Cos(th) hist for d=5"
-file_cos_th = "data/dist_cos_th_d=5.csv"
-histCosTh = Histogram(description_cos_th, file_cos_th)
+description_cos_th = "Cos(th) data from 22_07_08"
+cos_th_folder = "data/cos_th_dist"
+histCosTh = Histogram(description_cos_th, cos_th_folder)
 histCosTh.create_normalized()
 histCosTh.create_cumulative()
 
@@ -28,7 +28,7 @@ histPhi.create_cumulative()
 
 # Create Projectiles object of the extracted histograms
 description_projectile = "Direction Information for simulated Photons"
-num_photons = 1 * 10**4     # one million photons as default
+num_photons = 1 * 10**6     # one million photons as default
 myPhotons = Projectiles(description_projectile, num_photons)
 
 # Generate arbitrary number of photons using Monte Carlo method
@@ -37,7 +37,7 @@ photon_trajectories = myPhotons.coords_list
 
 # Create cylinder object of simulation tank and place an mPMT at a random height within it
 myTank = Cylinder(tank_height_m, tank_diam_m)
-mpmt_height_m = 0   # tank_height_m * np.random.uniform(-0.5, 0.5)
+mpmt_height_m = tank_height_m * 0  # * np.random.uniform(-0.5, 0.5)
 
 # Determine impact coordinates for each photon trajectory
 myTank.generate_impact_coords(photon_trajectories, mpmt_height_m)

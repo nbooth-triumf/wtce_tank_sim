@@ -50,7 +50,7 @@ class Projectiles(object):
         # Locate bin number where value is included in cumulative
         correct_bin = 0  # Initialize
         while correct_bin < bin_count:
-            if value < cumul_pdf[correct_bin]:
+            if value <= cumul_pdf[correct_bin]:
                 # This is the correct bin
                 break
             else:
@@ -63,7 +63,8 @@ class Projectiles(object):
         else:
             bin_to_left = correct_bin - 1
 
-        # Determine exact random variable value relative to where value is between cumulative probability density values
+        # Determine exact random variable value relative to where value is between
+        # cumulative probability density values
         cumulative_range = cumul_pdf[correct_bin] - cumul_pdf[bin_to_left]
         relative_value = value - cumul_pdf[bin_to_left]
         ratio = relative_value / cumulative_range

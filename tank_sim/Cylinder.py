@@ -52,7 +52,14 @@ class Cylinder(object):
         for n in range(self.num_photons):
             # Extract data
             [cos_th, phi] = directional_coords[n]
-            theta = np.arccos(cos_th)
+            theta_init = np.arccos(cos_th)
+
+            # Account for air / plastic / water interfaces via Snell's Law
+            # Refractive index of plastic is not needed due to algebra
+            n_air = 1.0003
+            n_water = 1.333
+            n_ratio = n_air / n_water
+            theta = np.arcsin(n_ratio * np.sin(theta_init))
 
             # Define unit vectors in the source (prime) reference frame from given theta and phi
             x_prime_hat = np.sin(theta)*np.sin(phi)
@@ -87,8 +94,13 @@ class Cylinder(object):
             """
 
             # Use similar triangles and unit vectors to obtain z
-            delta_z_x = x_impact * (z_hat / x_hat)
             delta_z_y = (y_impact + self.radius) * (z_hat / y_hat)
+            # Account for limits in x_hat (y_hat is never zero)
+            if x_hat == 0.0:
+                delta_z_x = 0.0
+            else:
+                delta_z_x = x_impact * (z_hat / x_hat)
+
             if np.abs(delta_z_y - delta_z_x) > 0.001:
                 # If these do not match, the geometry/vectors are incorrect
                 print("impact coordinate math is incorrect")
@@ -255,20 +267,25 @@ class Cylinder(object):
         lid.set_theta_zero_location("S")
         lid.scatter(self.lid_alpha, self.lid_radii)
         self.convert_polar_xticks_to_radians(lid)
+        lid.set_rticks(np.arange(0, self.radius, 500))
         lid.set_rlabel_position(135)
 
         # Create wall subplot
         wall = fig.add_subplot(3, 1, 2)
         wall.scatter(self.wall_alpha, self.wall_height)
         plt.xlim(-np.pi, np.pi)
+        wall.set_xticks(np.arange(-np.pi, np.pi, np.pi/4))
+        self.convert_polar_xticks_to_radians(wall)
         plt.ylim(-self.z_limit, self.z_limit)
         plt.grid()
 
         # Create base subplot
         base = fig.add_subplot(3, 1, 3, projection='polar')
         base.set_theta_zero_location("N")
+        base.set_theta_direction(-1)
         base.scatter(self.base_alpha, self.base_radii)
         self.convert_polar_xticks_to_radians(base)
+        base.set_rticks(np.arange(0, self.radius, 500))
         base.set_rlabel_position(135)
 
         fig.tight_layout()
@@ -296,20 +313,27 @@ class Cylinder(object):
 
         # Create lid subplot
         lid.set_theta_zero_location("S")
-        lid.pcolormesh(self.lid_a, self.lid_r, self.lid_counts, vmin=0, vmax=lid_max, cmap='viridis')
+        lid.pcolormesh(self.lid_a, self.lid_r, self.lid_counts, vmin=0, vmax=self.counts_max, cmap='viridis')
         self.convert_polar_xticks_to_radians(lid)
-        lid.set_rlabel_position(135)
+        lid.set_rticks(np.arange(0, self.radius, 500))
+        lid.tick_params(axis='y', colors='orange')
+        lid.set_rlabel_position(215)
+        lid.grid()
 
         # Create wall subplot
-        mid = wall.imshow(self.wall_counts, vmin=0, vmax=wall_max, cmap='viridis')
+        mid = wall.imshow(self.wall_counts, vmin=0, vmax=self.counts_max, cmap='viridis')
         wall.set_ylim(wall.get_ylim()[::-1])
-        plt.grid()
+        wall.grid()
 
         # Create base subplot
         base.set_theta_zero_location("N")
-        base.pcolormesh(self.base_a, self.base_r, self.base_counts, vmin=0, vmax=base_max, cmap='viridis')
+        base.set_theta_direction(-1)
+        base.pcolormesh(self.base_a, self.base_r, self.base_counts, vmin=0, vmax=self.counts_max, cmap='viridis')
         self.convert_polar_xticks_to_radians(base)
-        base.set_rlabel_position(135)
+        base.set_rticks(np.arange(0, self.radius, 500))
+        base.tick_params(axis='y', colors='orange')
+        base.set_rlabel_position(165)
+        base.grid()
 
         cbar_ax = fig.add_axes([0.8, 0.05, 0.05, 0.25])
         fig.colorbar(mid, cax=cbar_ax)
@@ -325,7 +349,7 @@ class Cylinder(object):
     def format_radians_label(self, float_in):
         # Converts a float value in radians into a
         # string representation of that float
-        string_out = str(float_in / np.pi) + "π"
+        string_out = str((float_in / np.pi)) + "π"
 
         return string_out
 
@@ -340,6 +364,12 @@ class Cylinder(object):
         # Convert to a list since we want to change the type of the elements
         labels = list(label_positions)
 
+        # Convert from [0, 2*np.pi] to [-np.pi, np.pi]
+        for n in range(len(labels)):
+            val = labels[n]
+            if val > np.pi:
+                labels[n] = val - 2*np.pi
+
         # Format each label
         labels = [self.format_radians_label(angle) for angle in labels]
 
@@ -350,7 +380,14 @@ class Cylinder(object):
     """"""
 
     def create_intensity(self, file_name, show=False):
+        # Initialize
         intensities = []
+        num_bins = int(self.counts_max) + 1
+        tick_freq = round(num_bins / 10)
+        if tick_freq < 1:
+            tick_freq = 1
+
+        # Extract data
         for n in range(len(self.lid_counts)):
             for m in range(len(self.lid_counts[n])):
                 counts = int(self.lid_counts[n][m])
@@ -366,8 +403,11 @@ class Cylinder(object):
                 counts = int(self.base_counts[n][m])
                 if counts != 0:     intensities.append(counts)
 
-        plt.hist(intensities)
+        # Plot
+        plt.hist(intensities, bins=range(num_bins))
         plt.grid()
+        plt.xlim((0, num_bins))
+        plt.xticks(np.arange(0, num_bins, tick_freq))
         plt.title('Intensity Histogram')
         plt.xlabel('Number of Photons')
         plt.ylabel('Number of Bins')

@@ -8,12 +8,17 @@ class Projectiles(object):
     Base class for list of projectiles and their direction coordinates
     """
 
-    def __init__(self, description, num_projectiles):
+    def __init__(self, description, num_projectiles, cos_th_min, cos_th_max, phi_min, phi_max):
         """
         Constructor
         """
         self.description = description      # Description of dataset
         self.num_proj = num_projectiles     # Number of projectiles to be given direction
+
+        self.cos_th_min = cos_th_min        # Define cos_th range
+        self.cos_th_max = cos_th_max
+        self.phi_min = phi_min              # Define phi range
+        self.phi_max = phi_max
 
         self.coords_list = []  # Initialize data structure of direction coordinates
 
@@ -24,13 +29,14 @@ class Projectiles(object):
 
         while count < self.num_proj:
             # Determine random cos(theta)
-            cos_th_rand = self.monte_carlo(pdf_cos_th, rand_var_min=0.5, rand_var_max=1.0)
+            cos_th_rand = self.monte_carlo(pdf_cos_th,
+                                           rand_var_min=self.cos_th_min, rand_var_max=self.cos_th_max)
 
             # Determine phi from uniform distribution unless otherwise specified
             if pdf_phi != [0]:
-                phi_rand = self.monte_carlo(pdf_phi, rand_var_min=0.0, rand_var_max=2 * np.pi)
+                phi_rand = self.monte_carlo(pdf_phi, rand_var_min=self.phi_min, rand_var_max=self.phi_max)
             else:
-                phi_rand = np.random.uniform(0.0, 2 * np.pi)
+                phi_rand = np.random.uniform(self.phi_min, self.phi_max)
 
             # Combine and store
             direction_pair = [cos_th_rand, phi_rand]
@@ -60,13 +66,15 @@ class Projectiles(object):
         # Account for edge cases
         if correct_bin == 0:
             bin_to_left = 0
+            counts_to_left = 0
         else:
             bin_to_left = correct_bin - 1
+            counts_to_left = cumul_pdf[bin_to_left]
 
         # Determine exact random variable value relative to where value is between
         # cumulative probability density values
-        cumulative_range = cumul_pdf[correct_bin] - cumul_pdf[bin_to_left]
-        relative_value = value - cumul_pdf[bin_to_left]
+        cumulative_range = cumul_pdf[correct_bin] - counts_to_left
+        relative_value = value - counts_to_left
         ratio = relative_value / cumulative_range
         bin_offset = ratio * bin_width
         rand_var = rand_var_min + bin_width * correct_bin + bin_offset

@@ -1,6 +1,7 @@
 import csv
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 class Histogram(object):
@@ -29,11 +30,11 @@ class Histogram(object):
 
         self.num_bins = None                # Number of bins in histogram
 
-        self.make_full_hist()
+        self.open_all_files()
 
     """"""
 
-    def make_full_hist(self):
+    def open_all_files(self):
         # Iterate over all files in given directory and save the file paths
         for file_path in os.listdir(self.directory):
             f = os.path.join(self.directory, file_path)
@@ -53,7 +54,8 @@ class Histogram(object):
             # Open file and identify first full bin
             [data, num_bins] = self.open_csv(file_path)
             self.file_data.append(data)
-            self.file_data_start.append(self.find_first_bin(data))
+            first_full_bin = self.find_first_bin(data)
+            self.file_data_start.append(first_full_bin)
 
             # Confirm num_bins is constant for each file
             if self.num_bins is None:
@@ -61,8 +63,12 @@ class Histogram(object):
             elif self.num_bins != num_bins:
                 print('Error: Data files are not compatible.')
 
+    """"""
+
+    def combine_files(self):
         # Combine datasets using found starting bin numbers
         self.full_hist = np.zeros(self.num_bins)
+
         for n in range(self.num_files):
             # Define Start
             start_index = self.file_data_start[n]
@@ -74,10 +80,26 @@ class Histogram(object):
             else:
                 stop_index = self.file_data_start[n + 1]
 
-            # Iterate
+            # Iterate to stop
             while current_index < stop_index:
                 self.full_hist[current_index] = self.file_data[n][current_index]
                 current_index = current_index + 1
+
+            # Adjust histogram values to make distribution continuous at stop
+            # at this point, current_index = stop_index
+            if n == self.num_files - 1:
+                # Last file does need to be adjusted
+                continue
+            else:
+                # Adjust file_data[n] bins according to the normalized offset
+                current_stop_data = self.file_data[n][current_index]
+                next_start_data = self.file_data[n+1][current_index]
+                for m in range(start_index, stop_index):
+                    # Normalize current data point then scale to next data point
+                    unadjusted = self.file_data[n][m]
+                    norm_val = unadjusted / current_stop_data
+                    adjusted = int(round(norm_val * next_start_data, self.sig_figs))
+                    self.full_hist[m] = adjusted
 
     """"""
 
@@ -100,9 +122,48 @@ class Histogram(object):
     """"""
 
     def find_first_bin(self, dataset):
-        print('Complete find_first_bin method')
+        # Initialize
+        num_bins = len(dataset)
+        current_index = 0
+        first_full_bin = None
 
-        return 30
+        # Iterate to second to last bin
+        while current_index < (num_bins - 1):
+            # Extract
+            current_data = dataset[current_index]
+
+            # If bin is empty or negative, proceed to next bin
+            if current_data <= 0:
+                current_index = current_index + 1
+
+            # If bin is positive nonzero, investigate further
+            else:
+                # Compare current bin to next bin
+                next_data = dataset[current_index + 1]
+                comparison = (next_data - current_data) / current_data
+
+                # If change from current bin to next bin is much greater than the current bin value,
+                # the current bin is not full.
+                if comparison > 1:
+                    current_index = current_index + 1
+                # otherwise, save it as first full bin
+                else:
+                    first_full_bin = current_index
+                    break
+
+        # Return
+        if first_full_bin is None:
+            # no full bin found before final bin; current_index is equal to num_bins - 1
+            if dataset[current_index] > 0:
+                # Final bin is first full bin
+                return current_index
+            else:
+                # Dataset is empty. Alert user.
+                print('Dataset has no full bins. Element 0 is returned.')
+                return 0
+        else:
+            # If first_full_bin is defined, return it.
+            return first_full_bin
 
     """"""
 
@@ -134,3 +195,41 @@ class Histogram(object):
         # Force cumulative to end at 1.0
         if self.cumulative[self.num_bins - 1] > 1.0:
             self.cumulative[self.num_bins - 1] = 1.0
+
+    """"""
+
+    def plot_dists(self, bin_range, x_label, path_header):
+        # Plot all distributions
+        # combined full histogram
+        label = 'full_hist'
+        self.plot_histogram(bin_range, self.full_hist, label, x_label, path_header+'/'+label+'.png')
+
+        # Normalized
+        label = 'normalized_dist'
+        self.plot_histogram(bin_range, self.normalized, label, x_label, path_header+'/'+label+'.png')
+
+        # Cumulative
+        label = 'cumulative_dist'
+        self.plot_histogram(bin_range, self.cumulative, label, x_label, path_header+'/'+label+'.png')
+
+    """"""
+
+    def plot_histogram(self, bin_range, distribution, title, x_label, file_name, show=False):
+        # Define bins
+        xmin = bin_range[0]
+        xstep = bin_range[1] - bin_range[0]
+        xmax = bin_range[-1] + xstep
+        bins_plot = np.linspace(xmin, xmax, self.num_bins+1)
+
+        # Plot
+        fig = plt.figure()
+        plt.stairs(distribution, bins_plot)
+        plt.title(title)
+        plt.xlim((xmin, xmax))
+        plt.xlabel(x_label)
+        plt.grid()
+        if show:
+            fig.show()
+        fig.savefig(file_name)
+
+    """"""

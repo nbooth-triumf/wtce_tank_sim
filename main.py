@@ -4,10 +4,8 @@ from tank_sim.Projectiles import Projectiles
 from tank_sim.Histogram import Histogram
 from tank_sim.Cylinder import Cylinder
 
-path_header = "C:/Users/booth/PycharmProjects/wtce_tank_sim/"
-
 # Define knowns (from data and 2021.3.31 WTCE Proposal pg 30)
-num_photons = 1 * 10**6     # one million photons as default
+num_photons = 1 * 10**7     # one million photons as default
 cos_th_min = 0.5            # dimensionless
 cos_th_max = 1.0            # dimensionless
 phi_min = 0                 # radians
@@ -16,8 +14,9 @@ tank_height_m = 4.0         # metres
 tank_diam_m = 4.1           # metres
 
 # Define cos(th) directory and open all files
+path_header = "C:/Users/booth/PycharmProjects/wtce_tank_sim/22_07_08/"
 description_cos_th = "Cos(th) data from 22_07_08"
-cos_th_folder = "data/cos_th_dist"
+cos_th_folder = path_header + "data/cos_th_dist"
 histCosTh = Histogram(description_cos_th, cos_th_folder)
 
 # Combine all files in directory into full histogram

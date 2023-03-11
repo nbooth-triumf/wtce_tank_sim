@@ -193,7 +193,7 @@ class Histogram(object):
             self.cumulative.append(sum_to_bin)
 
         # Force cumulative to end at 1.0
-        if self.cumulative[self.num_bins - 1] > 1.0:
+        if self.cumulative[self.num_bins - 1] != 1.0:
             self.cumulative[self.num_bins - 1] = 1.0
 
     """"""
@@ -231,5 +231,6 @@ class Histogram(object):
         if show:
             fig.show()
         fig.savefig(file_name)
+        plt.close(fig)
 
     """"""

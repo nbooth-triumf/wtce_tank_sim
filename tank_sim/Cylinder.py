@@ -403,16 +403,34 @@ class Cylinder(object):
                 counts = int(self.base_counts[n][m])
                 if counts != 0:     intensities.append(counts)
 
+        # Organize data
+        num_inten = len(intensities)
+        frac_bins = []
+        log_steps = []
+        exp = 0
+        log_steps.append(exp)       # len(edges) must be len(values) + 1
+        cum_frac = 0
+        while cum_frac < 0.99:
+            cumulative_count = 0
+            log_limit = 10**exp
+            for n in range(num_inten):
+                if intensities[n] < log_limit:
+                    cumulative_count = cumulative_count + 1
+            cum_frac = cumulative_count / num_inten
+            frac_bins.append(cum_frac)
+            exp = exp + 1
+            log_steps.append(exp)
+
         # Plot
-        plt.hist(intensities, bins=range(num_bins))
+        fig = plt.figure()
+        plt.stairs(frac_bins, log_steps)
+        plt.title('Cumulative Intensity Histogram')
+        plt.xlabel('Log10 of Number of Photons')
+        plt.ylabel('Number of Bins (Fraction of total)')
         plt.grid()
-        plt.xlim((0, num_bins))
-        plt.xticks(np.arange(0, num_bins, tick_freq))
-        plt.title('Intensity Histogram')
-        plt.xlabel('Number of Photons')
-        plt.ylabel('Number of Bins')
         if show:
-            plt.show()
-        plt.savefig(file_name)
+            fig.show()
+        fig.savefig(file_name)
+        plt.close(fig)
 
     """"""

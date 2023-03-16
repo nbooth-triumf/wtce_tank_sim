@@ -36,9 +36,16 @@ class Cylinder(object):
         self.base_a = None
 
         self.lid_counts = None
+        self.lid_log_counts = None
         self.wall_counts = None
+        self.wall_log_counts = None
         self.base_counts = None
+        self.base_log_counts = None
         self.counts_max = None
+        self.counts_log_max = None
+
+        self.intensities = []
+        self.log_intensities = []
 
         self.troubleshooting_info = []      # Data structure to save relevant values if error occurs
 
@@ -142,23 +149,26 @@ class Cylinder(object):
 
     """"""
 
-    def create_graphics(self, file_name, show=False):
+    def prepare_graphics(self):
         # Prepare data
-        self.isolate_axes()     # Extract each individual axes as a separate dataset
-        self.make_meshes()      # Create 2D arrays in polar, cart, polar (for lid, wall, base, respectively)
+        self.isolate_axes()  # Extract each individual axes as a separate dataset
+        self.make_meshes()  # Create 2D arrays in polar, cart, polar (for lid, wall, base, respectively)
+        self.get_log_counts()    # convert meshes to log10 of the counts
+
+    """"""
+
+    def create_graphics(self, file_name, show=False):
+        # Prepare graphics
+        self.prepare_graphics()
 
         # Plot
-        scatter_name = file_name + "_scatter.jpg"
-        self.make_scatter_plot(scatter_name, show)
-        heatmap_name = file_name + "_heatmap.jpg"
-        self.make_heatmap(heatmap_name, show)
-        """
-        plt.imshow(self.wall_counts)
-        ax = plt.gca()
-        ax.set_ylim(ax.get_ylim()[::-1])
-        plt.colorbar()
-        plt.savefig(heatmap_name)
-        """
+        scatter_name = file_name + "_scatter"
+        #  self.make_scatter_plot(scatter_name, show)
+        heatmap_name = file_name + "_heatmap"
+        self.make_heatmap(heatmap_name, log=False, show=show)
+        self.make_heatmap(heatmap_name, log=True, show=show)
+
+
     """"""
 
     def isolate_axes(self):
@@ -256,6 +266,46 @@ class Cylinder(object):
             # add photon to [alpha_bin, r_bin]
             self.base_counts[alpha_bin, r_bin] = self.base_counts[alpha_bin, r_bin] + 1
 
+        # Find maximum counts in the simulation
+        lid_max = np.amax(self.lid_counts)
+        wall_max = np.amax(self.wall_counts)
+        base_max = np.amax(self.base_counts)
+        self.counts_max = max(lid_max, wall_max, base_max)
+
+    """"""
+
+    def get_log_counts(self):
+        # Initialize
+        lid_shape = np.shape(self.lid_counts)
+        self.lid_log_counts = np.zeros(lid_shape)
+        wall_shape = np.shape(self.wall_counts)
+        self.wall_log_counts = np.zeros(wall_shape)
+        base_shape = np.shape(self.base_counts)
+        self.base_log_counts = np.zeros(base_shape)
+
+        # Convert to log10
+        self.convert_counts_log_10(self.lid_counts, self.lid_log_counts, lid_shape)
+        self.convert_counts_log_10(self.wall_counts, self.wall_log_counts, wall_shape)
+        self.convert_counts_log_10(self.base_counts, self.base_log_counts, base_shape)
+
+        # Find maximum log counts in the simulation
+        lid_log_max = np.amax(self.lid_log_counts)
+        wall_log_max = np.amax(self.wall_log_counts)
+        base_log_max = np.amax(self.base_log_counts)
+        self.counts_log_max = max(lid_log_max, wall_log_max, base_log_max)
+
+    """"""
+
+    def convert_counts_log_10(self, counts_list, log_counts_list, list_shape):
+        for i in range(list_shape[1]):
+            for j in range(list_shape[0]):
+                counts = counts_list[j, i]
+                if counts != 0:
+                    log_counts = np.log10(counts)
+                    log_counts_list[j, i] = log_counts
+                else:
+                    log_counts_list[j, i] = 0
+
     """"""
 
     def make_scatter_plot(self, file_name, show):
@@ -297,12 +347,20 @@ class Cylinder(object):
 
     """"""
 
-    def make_heatmap(self, file_name, show):
-        # Find maximum counts in the simulation
-        lid_max = np.amax(self.lid_counts)
-        wall_max = np.amax(self.wall_counts)
-        base_max = np.amax(self.base_counts)
-        self.counts_max = max(lid_max, wall_max, base_max)
+    def make_heatmap(self, file_name, log=True, show=False):
+        # Define data to plot
+        if log:
+            lid_to_plot = self.lid_log_counts
+            wall_to_plot = self.wall_log_counts
+            base_to_plot = self.base_log_counts
+            v_max_plot = self.counts_log_max
+            title_label = "log10"
+        else:
+            lid_to_plot = self.lid_counts
+            wall_to_plot = self.wall_counts
+            base_to_plot = self.base_counts
+            v_max_plot = self.counts_max
+            title_label = "Raw Simulation"
 
         # Initialize whole figure
         fig = plt.figure(figsize=(12, 12))
@@ -313,7 +371,7 @@ class Cylinder(object):
 
         # Create lid subplot
         lid.set_theta_zero_location("S")
-        lid.pcolormesh(self.lid_a, self.lid_r, self.lid_counts, vmin=0, vmax=self.counts_max, cmap='viridis')
+        lid.pcolormesh(self.lid_a, self.lid_r, lid_to_plot, vmin=0, vmax=v_max_plot, cmap='viridis')
         self.convert_polar_xticks_to_radians(lid)
         lid.set_rticks(np.arange(0, self.radius, 500))
         lid.tick_params(axis='y', colors='orange')
@@ -321,14 +379,14 @@ class Cylinder(object):
         lid.grid()
 
         # Create wall subplot
-        mid = wall.imshow(self.wall_counts, vmin=0, vmax=self.counts_max, cmap='viridis')
+        mid = wall.imshow(wall_to_plot, vmin=0, vmax=v_max_plot, cmap='viridis')
         wall.set_ylim(wall.get_ylim()[::-1])
         wall.grid()
 
         # Create base subplot
         base.set_theta_zero_location("N")
         base.set_theta_direction(-1)
-        base.pcolormesh(self.base_a, self.base_r, self.base_counts, vmin=0, vmax=self.counts_max, cmap='viridis')
+        base.pcolormesh(self.base_a, self.base_r, base_to_plot, vmin=0, vmax=v_max_plot, cmap='viridis')
         self.convert_polar_xticks_to_radians(base)
         base.set_rticks(np.arange(0, self.radius, 500))
         base.tick_params(axis='y', colors='orange')
@@ -338,10 +396,11 @@ class Cylinder(object):
         cbar_ax = fig.add_axes([0.8, 0.05, 0.05, 0.25])
         fig.colorbar(mid, cax=cbar_ax)
 
+        plt.title(title_label)
         plt.tight_layout()
         if show:
             plt.show()
-        plt.savefig(file_name)
+        plt.savefig(file_name + "_" + title_label)
         plt.close()
 
     """"""
@@ -379,52 +438,110 @@ class Cylinder(object):
 
     """"""
 
-    def create_intensity(self, file_name, show=False):
-        # Initialize
-        intensities = []
-        num_bins = int(self.counts_max) + 1
-        tick_freq = round(num_bins / 10)
-        if tick_freq < 1:
-            tick_freq = 1
+    def create_intensity(self, file_name, log=True, show=False):
+        if log:
+            self.log_intensity(file_name + "_log", show=show)
+        else:
+            self.raw_intensity(file_name, show=show)
 
+    """"""
+
+    def raw_intensity(self, file_name, show=False):
         # Extract data
         for n in range(len(self.lid_counts)):
             for m in range(len(self.lid_counts[n])):
                 counts = int(self.lid_counts[n][m])
-                if counts != 0:     intensities.append(counts)
+                if counts != 0:
+                    self.intensities.append(counts)
 
         for n in range(len(self.wall_counts)):
             for m in range(len(self.wall_counts[n])):
                 counts = int(self.wall_counts[n][m])
-                if counts != 0:     intensities.append(counts)
+                if counts != 0:
+                    self.intensities.append(counts)
 
         for n in range(len(self.base_counts)):
             for m in range(len(self.base_counts[n])):
                 counts = int(self.base_counts[n][m])
-                if counts != 0:     intensities.append(counts)
-
+                if counts != 0:
+                    self.intensities.append(counts)
+        """
         # Organize data
-        num_inten = len(intensities)
+        num_inten = len(self.intensities)
         frac_bins = []
         log_steps = []
         exp = 0
         log_steps.append(exp)       # len(edges) must be len(values) + 1
+
         cum_frac = 0
-        while cum_frac < 0.99:
+        while cum_frac <= 0.99:
             cumulative_count = 0
             log_limit = 10**exp
             for n in range(num_inten):
-                if intensities[n] < log_limit:
+                if self.intensities[n] < log_limit:
                     cumulative_count = cumulative_count + 1
             cum_frac = cumulative_count / num_inten
             frac_bins.append(cum_frac)
             exp = exp + 1
             log_steps.append(exp)
+        """
 
         # Plot
         fig = plt.figure()
-        plt.stairs(frac_bins, log_steps)
-        plt.title('Cumulative Intensity Histogram')
+        plt.hist(self.intensities)
+        plt.title('Intensity Histogram')
+        plt.xlabel('Number of Photons')
+        plt.ylabel('Number of Bins')
+        plt.grid()
+        if show:
+            fig.show()
+        fig.savefig(file_name)
+        plt.close(fig)
+
+    """"""
+
+    def log_intensity(self, file_name, show=False):
+        # Extract data
+        for n in range(len(self.lid_log_counts)):
+            for m in range(len(self.lid_log_counts[n])):
+                counts = int(self.lid_log_counts[n][m])
+                if counts != 0:
+                    self.log_intensities.append(counts)
+
+        for n in range(len(self.wall_log_counts)):
+            for m in range(len(self.wall_log_counts[n])):
+                counts = int(self.wall_log_counts[n][m])
+                if counts != 0:
+                    self.log_intensities.append(counts)
+
+        for n in range(len(self.base_log_counts)):
+            for m in range(len(self.base_log_counts[n])):
+                counts = int(self.base_log_counts[n][m])
+                if counts != 0:
+                    self.log_intensities.append(counts)
+
+        # Organize data
+        num_log_inten = len(self.log_intensities)
+        frac_log_bins = []
+        steps = []
+        exp = 0
+        steps.append(exp)       # len(edges) must be len(values) + 1
+
+        cum_frac = 0
+        while cum_frac <= 0.99:
+            cumulative_count = 0
+            for n in range(num_log_inten):
+                if self.log_intensities[n] < exp:
+                    cumulative_count = cumulative_count + 1
+            cum_frac = cumulative_count / num_log_inten
+            frac_log_bins.append(cum_frac)
+            exp = exp + 1
+            steps.append(exp)
+
+        # Plot
+        fig = plt.figure()
+        plt.stairs(frac_log_bins, steps, fill=True)
+        plt.title('Cumulative Log10 Intensity Histogram')
         plt.xlabel('Log10 of Number of Photons')
         plt.ylabel('Number of Bins (Fraction of total)')
         plt.grid()

@@ -5,7 +5,7 @@ from tank_sim.Histogram import Histogram
 from tank_sim.Cylinder import Cylinder
 
 # Define knowns (from data and 2021.3.31 WTCE Proposal pg 30)
-num_photons = 1 * 10**7     # one million photons as default
+num_photons = 1 * 10**8     # one million photons as default
 cos_th_min = 0.5            # dimensionless
 cos_th_max = 1.0            # dimensionless
 phi_min = 0                 # radians
@@ -61,5 +61,6 @@ myTank.create_graphics(graphic_file)
 
 # Create Intensity distribution
 intensity_file = path_header + "tank_intensity"
-myTank.create_intensity(intensity_file)
+myTank.create_intensity(intensity_file, log=True)
+myTank.create_intensity(intensity_file, log=False)
 

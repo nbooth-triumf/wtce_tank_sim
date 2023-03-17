@@ -14,8 +14,8 @@ tank_height_m = 4.0         # metres
 tank_diam_m = 4.1           # metres
 
 # Define cos(th) directory and open all files
-path_header = "C:/Users/booth/PycharmProjects/wtce_tank_sim/22_07_08/"
-description_cos_th = "Cos(th) data from 22_07_08"
+path_header = "C:/Users/booth/PycharmProjects/wtce_tank_sim/22_08_17b/"
+description_cos_th = "Cos(th) data from 22_08_17b"
 cos_th_folder = path_header + "data/cos_th_dist"
 histCosTh = Histogram(description_cos_th, cos_th_folder)
 

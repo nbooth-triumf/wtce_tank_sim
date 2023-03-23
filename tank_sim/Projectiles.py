@@ -1,6 +1,5 @@
 import numpy as np
-import csv
-import os
+import pickle
 
 
 class Projectiles(object):
@@ -45,38 +44,44 @@ class Projectiles(object):
 
     """"""
 
-    def monte_carlo(self, cumul_pdf, rand_var_min, rand_var_max):
-        # Extract bin count and bin width from pdf
-        bin_count = len(cumul_pdf)
+    def monte_carlo(self, norm_pdf, rand_var_min, rand_var_max):
+        # Extract bin count, bin width, and normalized_max from pdf
+        bin_count = len(norm_pdf)
         bin_width = (rand_var_max - rand_var_min) / bin_count
+        norm_max = max(norm_pdf)
+        f_big = 1.2*norm_max
+        point_is_rejected = True
 
-        # Generate random value between 0 and 1, uniformly
-        value = np.random.uniform(0, 1.0)
+        # Generate rand_var from pdf and constraints
+        while point_is_rejected:
+            # Acceptance-Rejection method
+            rand1 = np.random.uniform(0, 1)
+            x_rand = rand_var_min + (rand_var_max - rand_var_min)*rand1
+            rand2 = np.random.uniform(0, 1)
+            f_rand = f_big*rand2
 
-        # Locate bin number where value is included in cumulative
-        correct_bin = 0  # Initialize
-        while correct_bin < bin_count:
-            if value <= cumul_pdf[correct_bin]:
-                # This is the correct bin
-                break
-            else:
-                # Continue to next bin
-                correct_bin = correct_bin + 1
-
-        # Account for edge cases
-        if correct_bin == 0:
-            bin_to_left = 0
-            counts_to_left = 0
-        else:
-            bin_to_left = correct_bin - 1
-            counts_to_left = cumul_pdf[bin_to_left]
-
-        # Determine exact random variable value relative to where value is between
-        # cumulative probability density values
-        cumulative_range = cumul_pdf[correct_bin] - counts_to_left
-        relative_value = value - counts_to_left
-        ratio = relative_value / cumulative_range
-        bin_offset = ratio * bin_width
-        rand_var = rand_var_min + bin_width * correct_bin + bin_offset
+            # Determine bin and compare to pdf
+            bin_rand = int(np.floor((x_rand - rand_var_min) / bin_width))
+            f_x_rand = norm_pdf[bin_rand]
+            if f_rand < f_x_rand:
+                rand_var = x_rand
+                point_is_rejected = False
 
         return rand_var
+
+    # Save a projectiles object for later runs of code
+    def save_projectiles(self, file_name):
+        # open and close file around performing action
+        with open(file_name, "wb") as f:
+            pickle.dump(self, f)
+
+    """"""
+
+    # Open a projectiles object that was saved from a previous run
+    @classmethod
+    def open_projectiles(cls, file_name):
+        # open and close file around performing action
+        with open(file_name, "rb") as f:
+            return pickle.load(f)
+
+    """"""

@@ -131,8 +131,12 @@ class Cylinder(object):
                 # Store impact coords in correct data structure
                 if z_impact > 0:
                     self.lid_impact_coords.append([r, alpha, self.z_limit])
+                    self.lid_radii.append(r)
+                    self.lid_alpha.append(alpha)
                 else:
                     self.base_impact_coords.append([r, alpha, self.z_limit])
+                    self.base_radii.append(r)
+                    self.base_alpha.append(alpha)
 
             else:
                 # Impact point is inside tank
@@ -143,6 +147,8 @@ class Cylinder(object):
                 # Sanity check
                 if np.abs(r - self.radius) < 0.001:     # [=] mm
                     self.wall_impact_coords.append([r, alpha, z_impact])
+                    self.wall_alpha.append(alpha)
+                    self.wall_height.append(z_impact)
                 else:
                     print("Error encountered. Wall impact not at wall.")
                     self.troubleshooting_info.append([cos_th, phi, x_impact, y_impact, z_impact])
@@ -151,8 +157,7 @@ class Cylinder(object):
 
     def prepare_graphics(self):
         # Prepare data
-        self.isolate_axes()  # Extract each individual axes as a separate dataset
-        self.make_meshes()  # Create 2D arrays in polar, cart, polar (for lid, wall, base, respectively)
+        self.make_meshes()       # Create 2D arrays in polar, cart, polar (for lid, wall, base, respectively)
         self.get_log_counts()    # convert meshes to log10 of the counts
 
     """"""
@@ -168,31 +173,6 @@ class Cylinder(object):
         self.make_heatmap(heatmap_name, log=False, show=show)
         self.make_heatmap(heatmap_name, log=True, show=show)
 
-
-    """"""
-
-    def isolate_axes(self):
-        # Put data into plottable form by separating each axes into a distinct data structure
-        # Lid
-        for n in range(len(self.lid_impact_coords)):
-            # z is constant, extract r and alpha coords
-            [radius, alpha, z] = self.lid_impact_coords[n]
-            self.lid_radii.append(radius)
-            self.lid_alpha.append(alpha)
-
-        # Wall
-        for n in range(len(self.wall_impact_coords)):
-            # r is constant, extract alpha and z coords
-            [radius, alpha, z] = self.wall_impact_coords[n]
-            self.wall_alpha.append(alpha)
-            self.wall_height.append(z)
-
-        # Base
-        for n in range(len(self.base_impact_coords)):
-            # z is constant, extract r and alpha coords
-            [radius, alpha, z] = self.base_impact_coords[n]
-            self.base_radii.append(radius)
-            self.base_alpha.append(alpha)
 
     """"""
 
@@ -297,12 +277,15 @@ class Cylinder(object):
     """"""
 
     def convert_counts_log_10(self, counts_list, log_counts_list, list_shape):
+        # Convert from scalars to floats to get non-scalar results from np.log10()
+        counts_to_convert = counts_list.astype('float64')
+
+        # Iterate
         for i in range(list_shape[1]):
             for j in range(list_shape[0]):
-                counts = counts_list[j, i]
+                counts = counts_to_convert[j, i]
                 if counts != 0:
-                    log_counts = np.log10(counts)
-                    log_counts_list[j, i] = log_counts
+                    log_counts_list[j, i] = np.log10(counts)
                 else:
                     log_counts_list[j, i] = 0
 
@@ -465,30 +448,12 @@ class Cylinder(object):
                 counts = int(self.base_counts[n][m])
                 if counts != 0:
                     self.intensities.append(counts)
-        """
-        # Organize data
-        num_inten = len(self.intensities)
-        frac_bins = []
-        log_steps = []
-        exp = 0
-        log_steps.append(exp)       # len(edges) must be len(values) + 1
-
-        cum_frac = 0
-        while cum_frac <= 0.99:
-            cumulative_count = 0
-            log_limit = 10**exp
-            for n in range(num_inten):
-                if self.intensities[n] < log_limit:
-                    cumulative_count = cumulative_count + 1
-            cum_frac = cumulative_count / num_inten
-            frac_bins.append(cum_frac)
-            exp = exp + 1
-            log_steps.append(exp)
-        """
 
         # Plot
         fig = plt.figure()
         plt.hist(self.intensities)
+        plt.xlim(left=0)
+        plt.ylim(bottom=0)
         plt.title('Intensity Histogram')
         plt.xlabel('Number of Photons')
         plt.ylabel('Number of Bins')
@@ -504,46 +469,35 @@ class Cylinder(object):
         # Extract data
         for n in range(len(self.lid_log_counts)):
             for m in range(len(self.lid_log_counts[n])):
-                counts = int(self.lid_log_counts[n][m])
+                counts = self.lid_log_counts[n][m]
                 if counts != 0:
                     self.log_intensities.append(counts)
 
         for n in range(len(self.wall_log_counts)):
             for m in range(len(self.wall_log_counts[n])):
-                counts = int(self.wall_log_counts[n][m])
+                counts = self.wall_log_counts[n][m]
                 if counts != 0:
                     self.log_intensities.append(counts)
 
         for n in range(len(self.base_log_counts)):
             for m in range(len(self.base_log_counts[n])):
-                counts = int(self.base_log_counts[n][m])
+                counts = self.base_log_counts[n][m]
                 if counts != 0:
                     self.log_intensities.append(counts)
 
-        # Organize data
-        num_log_inten = len(self.log_intensities)
-        frac_log_bins = []
-        steps = []
-        exp = 0
-        steps.append(exp)       # len(edges) must be len(values) + 1
-
-        cum_frac = 0
-        while cum_frac <= 0.99:
-            cumulative_count = 0
-            for n in range(num_log_inten):
-                if self.log_intensities[n] < exp:
-                    cumulative_count = cumulative_count + 1
-            cum_frac = cumulative_count / num_log_inten
-            frac_log_bins.append(cum_frac)
-            exp = exp + 1
-            steps.append(exp)
+        # Bins
+        log_step = 0.1
+        max_log = int(np.ceil(np.max(self.log_intensities)))
+        bins = np.arange(0, max_log, log_step)
 
         # Plot
         fig = plt.figure()
-        plt.stairs(frac_log_bins, steps, fill=True)
-        plt.title('Cumulative Log10 Intensity Histogram')
+        plt.hist(self.log_intensities, bins=bins)
+        plt.xlim([0, np.log10(self.num_photons)])
+        plt.ylim(bottom=0)
+        plt.title('Log10 Intensity Histogram')
         plt.xlabel('Log10 of Number of Photons')
-        plt.ylabel('Number of Bins (Fraction of total)')
+        plt.ylabel('Number of Bins')
         plt.grid()
         if show:
             fig.show()

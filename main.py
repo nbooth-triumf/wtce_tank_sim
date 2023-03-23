@@ -1,5 +1,5 @@
-import csv
 import numpy as np
+import os
 from tank_sim.Projectiles import Projectiles
 from tank_sim.Histogram import Histogram
 from tank_sim.Cylinder import Cylinder
@@ -13,39 +13,55 @@ phi_max = 2*np.pi           # radians
 tank_height_m = 4.0         # metres
 tank_diam_m = 4.1           # metres
 
-# Define cos(th) directory and open all files
-path_header = "C:/Users/booth/PycharmProjects/wtce_tank_sim/22_08_17b/"
-description_cos_th = "Cos(th) data from 22_08_17b"
-cos_th_folder = path_header + "data/cos_th_dist"
-histCosTh = Histogram(description_cos_th, cos_th_folder)
+# Define cos(th) directory
+use_pickle = False
+data_group = "22_08_17b"
+working_folder = "C:/Users/booth/PycharmProjects/wtce_tank_sim/"
+pickle_folder = working_folder + "pickle/"
+path_header = working_folder + data_group + "/"
+description_cos_th = "Cos(th) data from " + data_group
+cos_th_folder = path_header + "data/cos_th_dist/"
 
-# Combine all files in directory into full histogram
-histCosTh.combine_files()
+if use_pickle:
+    # Open pickle file
+    myPhotons = Projectiles.open_projectiles(pickle_folder + "projectiles.p")
+    print("pickle opened successfully")
+else:
+    # Empty pickle folder to avoid memory issues
+    for f in os.listdir(pickle_folder):
+        os.remove(os.path.join(pickle_folder, f))
 
-# Create normalized and cumulative pdfs
-histCosTh.create_normalized()
-histCosTh.create_cumulative()
+    # Combine all files in directory into full histogram
+    histCosTh = Histogram(description_cos_th, cos_th_folder)
+    histCosTh.combine_files()
 
-# Plot created distributions
-cos_th_range = np.linspace(cos_th_min, cos_th_max, histCosTh.num_bins, endpoint=False)
-cos_th_range = [round(value, 2) for value in cos_th_range]
-histCosTh.plot_dists(cos_th_range, 'cos(theta)', cos_th_folder+'/Histograms')
+    # Create normalized and cumulative pdfs
+    histCosTh.create_normalized()
+    histCosTh.create_cumulative()
 
-"""
-# Import csv of phi and create pdfs
-description_phi = "Phi dist for d=5"
-file_phi = "Data/dist_phi_d=5.csv"
-histPhi = Histogram(description_phi, file_phi)
-histPhi.create_normalize()
-histPhi.create_cumulative()
-"""
+    # Plot created distributions
+    cos_th_range = np.linspace(cos_th_min, cos_th_max, histCosTh.num_bins, endpoint=False)
+    cos_th_range = [round(value, 2) for value in cos_th_range]
+    histCosTh.plot_dists(cos_th_range, 'cos(theta)', cos_th_folder + 'Histograms')
 
-# Create Projectiles object of the extracted histograms
-description_projectile = "Direction Information for simulated Photons"
-myPhotons = Projectiles(description_projectile, num_photons, cos_th_min, cos_th_max, phi_min, phi_max)
+    """
+    # Import csv of phi and create pdfs
+    description_phi = "Phi dist for d=5"
+    file_phi = "Data/dist_phi_d=5.csv"
+    histPhi = Histogram(description_phi, file_phi)
+    histPhi.create_normalize()
+    histPhi.create_cumulative()
+    """
 
-# Generate arbitrary number of photons using Monte Carlo method
-myPhotons.generate_direction_coords(pdf_cos_th=histCosTh.cumulative)
+    # Generate arbitrary number of photons using Monte Carlo method
+    description_projectile = "Direction Information for simulated Photons"
+    myPhotons = Projectiles(description_projectile, num_photons, cos_th_min, cos_th_max, phi_min, phi_max)
+    print("Time to generate some photons!")
+    myPhotons.generate_direction_coords(pdf_cos_th=histCosTh.normalized)
+    myPhotons.save_projectiles(pickle_folder + "projectiles.p")
+    print("pickle saved successfully")
+
+# Save
 photon_trajectories = myPhotons.coords_list
 
 # Create cylinder object of simulation tank and place an mPMT at a random height within it

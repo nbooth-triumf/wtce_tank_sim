@@ -7,16 +7,20 @@ class Cylinder(object):
     Base class for defining tank region and corresponding geometry
     """
 
-    def __init__(self, height_m, diameter_m):
+    def __init__(self, height_m, diameter_m, pmt_eff_area):
         """
         Constructor - HEIGHT AND DIAMETER IN METRES
         """
-        self.height = height_m * 1000       # Tank height [=] mm
+        self.height = height_m              # Tank height [=] m
         self.z_limit = self.height / 2      # Assuming origin in centre of tank, min/max value of z
-        self.diameter = diameter_m * 1000   # Tank diameter [=] mm
-        self.radius = self.diameter / 2     # Tank radius [=] mm
+        self.diameter = diameter_m          # Tank diameter [=] m
+        self.radius = self.diameter / 2     # Tank radius [=] m
+        self.pmt_area = pmt_eff_area        # Effective area of pmt [=] m^2
 
         self.num_photons = None             # Initialize number of projectiles
+        self.stepsize = None                # Initialize bin step in metres
+        self.alpha_step = None              # Initialize bin step in radians
+
         self.wall_impact_coords = []        # Initialize wall impact coords of [gamma, impact_height]
         self.lid_impact_coords = []         # Initialize lid_impact_coords of [r, alpha]
         self.base_impact_coords = []        # Initialize base_impact_coords of [r, alpha]
@@ -36,12 +40,22 @@ class Cylinder(object):
         self.base_a = None
 
         self.lid_counts = None
+        self.lid_shape = None
+        self.lid_pmt_counts = None
         self.lid_log_counts = None
+
         self.wall_counts = None
+        self.wall_shape = None
+        self.wall_pmt_counts = None
         self.wall_log_counts = None
+
         self.base_counts = None
+        self.base_shape = None
+        self.base_pmt_counts = None
         self.base_log_counts = None
+
         self.counts_max = None
+        self.pmt_counts_max = None
         self.counts_log_max = None
 
         self.intensities = []
@@ -52,8 +66,8 @@ class Cylinder(object):
     """"""
 
     def generate_impact_coords(self, directional_coords, source_height_m):
-        # convert to mm
-        source_height = source_height_m * 1000      # [=] mm
+        # keep all distances in same unit
+        source_height = source_height_m               # [=] m
         self.num_photons = len(directional_coords)
 
         for n in range(self.num_photons):
@@ -155,36 +169,31 @@ class Cylinder(object):
 
     """"""
 
-    def prepare_graphics(self):
-        # Prepare data
-        self.make_meshes()       # Create 2D arrays in polar, cart, polar (for lid, wall, base, respectively)
-        self.get_log_counts()    # convert meshes to log10 of the counts
+    def organize_data(self, stepsize=10**-2, pmt_eff=0.20):
+        # Create 2D arrays in polar, cart, polar (for lid, wall, base respectively)
+        self.stepsize = stepsize
+        self.propagate_meshes()        # centimetre stepsize by default
+
+        self.lid_shape = np.shape(self.lid_counts)
+        self.wall_shape = np.shape(self.wall_counts)
+        self.base_shape = np.shape(self.base_counts)
+
+        self.pmt_counts(efficiency=pmt_eff)
+        self.get_log_counts()       # convert meshes to log10 of the counts
 
     """"""
 
-    def create_graphics(self, file_name, show=False):
-        # Prepare graphics
-        self.prepare_graphics()
+    def propagate_meshes(self):   # centimetre stepsize
+        # Initialize
+        r_elements = int(self.radius / self.stepsize)
+        r_span = np.linspace(0, self.radius, r_elements)
 
-        # Plot
-        scatter_name = file_name + "_scatter"
-        #  self.make_scatter_plot(scatter_name, show)
-        heatmap_name = file_name + "_heatmap"
-        self.make_heatmap(heatmap_name, log=False, show=show)
-        self.make_heatmap(heatmap_name, log=True, show=show)
-
-
-    """"""
-
-    def make_meshes(self, num_elements=100):
-        # Initialize span of each dimension
-        r_span = np.linspace(0, self.radius, num_elements)
-        r_bin_width = self.radius / num_elements
-        alpha_elements = 3 * num_elements       # to scale wall x-axis appropriately
+        alpha_elements = 3 * r_elements       # to scale wall x-axis appropriately
         alpha_span = np.linspace(-np.pi, np.pi, alpha_elements)
-        alpha_bin_width = 2*np.pi / alpha_elements
-        z_span = np.linspace(-self.height/2, self.height/2, num_elements)
-        z_bin_width = self.height / num_elements
+        self.alpha_step = 2*np.pi / alpha_elements
+
+        z_elements = int(self.height / self.stepsize)
+        z_span = np.linspace(-self.height/2, self.height/2, z_elements)
 
         # Mesh
         self.lid_r, self.lid_a = np.meshgrid(r_span, alpha_span)
@@ -193,17 +202,17 @@ class Cylinder(object):
 
         # Propagate count values into meshes
         # Lid
-        self.lid_counts = np.zeros((alpha_elements, num_elements))
+        self.lid_counts = np.zeros((alpha_elements, r_elements))
         for n in range(len(self.lid_impact_coords)):
             # r_bin
             r_coord = self.lid_radii[n]
-            r_bin = int(np.floor(r_coord / r_bin_width))
-            if r_bin == num_elements:
-                r_bin = num_elements - 1            # Account for edges
+            r_bin = int(np.floor(r_coord / self.stepsize))
+            if r_bin == r_elements:
+                r_bin = r_elements - 1            # Account for edges
 
             # alpha_bin
             alpha_coord = self.lid_alpha[n]
-            alpha_bin = int(np.floor((alpha_coord + np.pi) / alpha_bin_width))
+            alpha_bin = int(np.floor((alpha_coord + np.pi) / self.alpha_step))
             if alpha_bin == alpha_elements:
                 alpha_bin = alpha_elements - 1        # Account for edges
 
@@ -211,35 +220,35 @@ class Cylinder(object):
             self.lid_counts[alpha_bin, r_bin] = self.lid_counts[alpha_bin, r_bin] + 1
 
         # Wall
-        self.wall_counts = np.zeros((num_elements, alpha_elements))
+        self.wall_counts = np.zeros((z_elements, alpha_elements))
         for n in range(len(self.wall_impact_coords)):
             # alpha_bin
             alpha_coord = self.wall_alpha[n]
-            alpha_bin = int(np.floor((alpha_coord + np.pi) / alpha_bin_width))
+            alpha_bin = int(np.floor((alpha_coord + np.pi) / self.alpha_step))
             if alpha_bin == alpha_elements:
                 alpha_bin = alpha_elements - 1        # Account for edges
 
             # z_bin
             z_coord = self.wall_height[n]
-            z_bin = int(np.floor((z_coord + self.height/2) / z_bin_width))
-            if z_bin == num_elements:
-                z_bin = num_elements - 1        # Account for edges
+            z_bin = int(np.floor((z_coord + self.height/2) / self.stepsize))
+            if z_bin == z_elements:
+                z_bin = z_elements - 1        # Account for edges
 
             # add photon to [z_bin, alpha_bin]
             self.wall_counts[z_bin, alpha_bin] = self.wall_counts[z_bin, alpha_bin] + 1
 
         # Base
-        self.base_counts = np.zeros((alpha_elements, num_elements))
+        self.base_counts = np.zeros((alpha_elements, r_elements))
         for n in range(len(self.base_impact_coords)):
             # r_bin
             r_coord = self.base_radii[n]
-            r_bin = int(np.floor(r_coord / r_bin_width))
-            if r_bin == num_elements:
-                r_bin = num_elements - 1  # Account for edges
+            r_bin = int(np.floor(r_coord / self.stepsize))
+            if r_bin == r_elements:
+                r_bin = r_elements - 1  # Account for edges
 
             # alpha_bin
             alpha_coord = self.base_alpha[n]
-            alpha_bin = int(np.floor((alpha_coord + np.pi) / alpha_bin_width))
+            alpha_bin = int(np.floor((alpha_coord + np.pi) / self.alpha_step))
             if alpha_bin == alpha_elements:
                 alpha_bin = alpha_elements - 1  # Account for edges
 
@@ -254,19 +263,87 @@ class Cylinder(object):
 
     """"""
 
+    def pmt_counts(self, efficiency):
+        # Initialize
+        self.lid_pmt_counts = np.zeros(self.lid_shape)
+        self.wall_pmt_counts = np.zeros(self.wall_shape)
+        self.base_pmt_counts = np.zeros(self.base_shape)
+
+        # Convert to counts per pmt using pmt efficiency and effective area
+        self.convert_to_pmt_counts(efficiency)
+
+        # Find maximum pmt counts in simulation
+        lid_pmt_max = np.amax(self.lid_pmt_counts)
+        wall_pmt_max = np.amax(self.wall_pmt_counts)
+        base_pmt_max = np.amax(self.base_pmt_counts)
+        self.pmt_counts_max = max(lid_pmt_max, wall_pmt_max, base_pmt_max)
+
+    """"""
+
+    def convert_to_pmt_counts(self, efficiency):
+        # For each bin, determine number of counts seen by pmt using pmt efficiency, then the effective
+        # area of the bin, then the number of counts per pmt using the pmt area
+
+        # Lid -> lid_shape = [alpha, r]
+        lid_floats = self.lid_counts.astype('float64')
+        for i in range(self.lid_shape[1]):
+            # Calculate bin_side_i from right-hand radius value
+            if i == self.lid_shape[1] - 1:
+                # Account for limits
+                current_r = i * self.stepsize
+            else:
+                current_r = (i + 1) * self.stepsize
+            for j in range(self.lid_shape[0]):
+                counts = lid_floats[j, i]
+                detected_counts = counts * efficiency
+                bin_side_i = self.stepsize
+                bin_side_j = current_r * self.alpha_step      # arc length = r * theta
+                bin_area = bin_side_i * bin_side_j
+                area_ratio = self.pmt_area / bin_area
+                self.lid_pmt_counts[j, i] = detected_counts * area_ratio
+
+        # Wall -> wall_shape = [z, alpha]
+        wall_floats = self.wall_counts.astype('float64')
+        for i in range(self.wall_shape[1]):
+            for j in range(self.wall_shape[0]):
+                counts = wall_floats[j, i]
+                detected_counts = counts * efficiency
+                bin_side_i = self.radius * self.alpha_step
+                bin_side_j = self.stepsize
+                bin_area = bin_side_i * bin_side_j
+                area_ratio = self.pmt_area / bin_area
+                self.wall_pmt_counts[j, i] = detected_counts * area_ratio
+
+        # Base -> base_shape = [alpha, r]
+        base_floats = self.base_counts.astype('float64')
+        for i in range(self.base_shape[1]):
+            # Calculate bin_side_i from farther radius value
+            if i == self.base_shape[1] - 1:
+                # Account for limits
+                current_r = i * self.stepsize
+            else:
+                current_r = (i + 1) * self.stepsize
+            for j in range(self.base_shape[0]):
+                counts = base_floats[j, i]
+                detected_counts = counts * efficiency
+                bin_side_i = self.stepsize
+                bin_side_j = current_r * self.alpha_step        # arc length = r * theta
+                bin_area = bin_side_i * bin_side_j
+                area_ratio = self.pmt_area / bin_area
+                self.base_pmt_counts[j, i] = detected_counts * area_ratio
+
+    """"""
+
     def get_log_counts(self):
         # Initialize
-        lid_shape = np.shape(self.lid_counts)
-        self.lid_log_counts = np.zeros(lid_shape)
-        wall_shape = np.shape(self.wall_counts)
-        self.wall_log_counts = np.zeros(wall_shape)
-        base_shape = np.shape(self.base_counts)
-        self.base_log_counts = np.zeros(base_shape)
+        self.lid_log_counts = np.zeros(self.lid_shape)
+        self.wall_log_counts = np.zeros(self.wall_shape)
+        self.base_log_counts = np.zeros(self.base_shape)
 
         # Convert to log10
-        self.convert_counts_log_10(self.lid_counts, self.lid_log_counts, lid_shape)
-        self.convert_counts_log_10(self.wall_counts, self.wall_log_counts, wall_shape)
-        self.convert_counts_log_10(self.base_counts, self.base_log_counts, base_shape)
+        self.convert_counts_log_10(self.lid_counts, self.lid_log_counts, self.lid_shape)
+        self.convert_counts_log_10(self.wall_counts, self.wall_log_counts, self.wall_shape)
+        self.convert_counts_log_10(self.base_counts, self.base_log_counts, self.base_shape)
 
         # Find maximum log counts in the simulation
         lid_log_max = np.amax(self.lid_log_counts)
@@ -277,7 +354,7 @@ class Cylinder(object):
     """"""
 
     def convert_counts_log_10(self, counts_list, log_counts_list, list_shape):
-        # Convert from scalars to floats to get non-scalar results from np.log10()
+        # Convert counts_list from scalars to floats to get non-scalar results
         counts_to_convert = counts_list.astype('float64')
 
         # Iterate
@@ -288,6 +365,16 @@ class Cylinder(object):
                     log_counts_list[j, i] = np.log10(counts)
                 else:
                     log_counts_list[j, i] = 0
+
+    """"""
+
+    def create_graphics(self, file_name, show=False):
+        # Plot
+        scatter_name = file_name + "_scatter"
+        #  self.make_scatter_plot(scatter_name, show)
+        heatmap_name = file_name + "_heatmap"
+        self.make_heatmap(heatmap_name, log=False, show=show)
+        self.make_heatmap(heatmap_name, log=True, show=show)
 
     """"""
 

@@ -4,18 +4,24 @@ from tank_sim.Projectiles import Projectiles
 from tank_sim.Histogram import Histogram
 from tank_sim.Cylinder import Cylinder
 
-# Define knowns (from data and 2021.3.31 WTCE Proposal pg 30)
-num_photons = 1 * 10**8     # one million photons as default
+# Define parameters of experiment being simulated (from 2021.3.31 WTCE Proposal pg 30 and others)
+tank_height_m = 4.0         # metres
+tank_diam_m = 4.1           # metres
+pmt_eff_area = 65 * 10**-4  # metres^2
+pmt_efficiency = 0.2        # assumed
+dynamic_min = 0             # photons
+dynamic_max = 50            # photons
+
+# Define knowns (from data and experiments)
+num_photons = 1 * 10**6     # one million photons as default
 cos_th_min = 0.5            # dimensionless
 cos_th_max = 1.0            # dimensionless
 phi_min = 0                 # radians
 phi_max = 2*np.pi           # radians
-tank_height_m = 4.0         # metres
-tank_diam_m = 4.1           # metres
 
 # Define cos(th) directory
-use_pickle = False
-data_group = "22_08_17b"
+use_pickle = True
+data_group = "22_07_08"
 working_folder = "C:/Users/booth/PycharmProjects/wtce_tank_sim/"
 pickle_folder = working_folder + "pickle/"
 path_header = working_folder + data_group + "/"
@@ -65,12 +71,13 @@ else:
 photon_trajectories = myPhotons.coords_list
 
 # Create cylinder object of simulation tank and place an mPMT at a random height within it
-myTank = Cylinder(tank_height_m, tank_diam_m)
+myTank = Cylinder(tank_height_m, tank_diam_m, pmt_eff_area)
 mpmt_height_m = tank_height_m * 0  # * np.random.uniform(-0.5, 0.5)
 
 # Determine impact coordinates for each photon trajectory
 myTank.generate_impact_coords(photon_trajectories, mpmt_height_m)
-
+myTank.organize_data(stepsize=10**-2, pmt_eff=pmt_efficiency)
+"""
 # Create graphic
 graphic_file = path_header + "tank_sim"
 myTank.create_graphics(graphic_file)
@@ -79,4 +86,4 @@ myTank.create_graphics(graphic_file)
 intensity_file = path_header + "tank_intensity"
 myTank.create_intensity(intensity_file, log=True)
 myTank.create_intensity(intensity_file, log=False)
-
+"""

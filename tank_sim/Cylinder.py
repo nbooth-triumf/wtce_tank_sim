@@ -55,7 +55,7 @@ class Cylinder(object):
         self.base_log_counts = None
 
         self.counts_max = None
-        self.pmt_counts_max = None
+        self.counts_pmt_max = None
         self.counts_log_max = None
 
         self.intensities = []
@@ -178,7 +178,7 @@ class Cylinder(object):
         self.wall_shape = np.shape(self.wall_counts)
         self.base_shape = np.shape(self.base_counts)
 
-        self.pmt_counts(efficiency=pmt_eff)
+        self.get_pmt_counts(efficiency=pmt_eff)
         self.get_log_counts()       # convert meshes to log10 of the counts
 
     """"""
@@ -263,7 +263,7 @@ class Cylinder(object):
 
     """"""
 
-    def pmt_counts(self, efficiency):
+    def get_pmt_counts(self, efficiency):
         # Initialize
         self.lid_pmt_counts = np.zeros(self.lid_shape)
         self.wall_pmt_counts = np.zeros(self.wall_shape)
@@ -276,7 +276,7 @@ class Cylinder(object):
         lid_pmt_max = np.amax(self.lid_pmt_counts)
         wall_pmt_max = np.amax(self.wall_pmt_counts)
         base_pmt_max = np.amax(self.base_pmt_counts)
-        self.pmt_counts_max = max(lid_pmt_max, wall_pmt_max, base_pmt_max)
+        self.counts_pmt_max = max(lid_pmt_max, wall_pmt_max, base_pmt_max)
 
     """"""
 
@@ -368,13 +368,17 @@ class Cylinder(object):
 
     """"""
 
-    def create_graphics(self, file_name, show=False):
-        # Plot
+    def create_graphics(self, file_name, data_description, show=False):
+        # Plot scatter plot of simulation
         scatter_name = file_name + "_scatter"
         #  self.make_scatter_plot(scatter_name, show)
+
+        # Standardize colour bars and create heatmaps for raw, adjusted, and log data
+        v_max = max(self.counts_max, self.counts_pmt_max, self.counts_log_max)
         heatmap_name = file_name + "_heatmap"
-        self.make_heatmap(heatmap_name, log=False, show=show)
-        self.make_heatmap(heatmap_name, log=True, show=show)
+        self.make_heatmap(heatmap_name, v_max, data_description, label='raw', show=show)
+        self.make_heatmap(heatmap_name, v_max, data_description, label='adjusted', show=show)
+        self.make_heatmap(heatmap_name, v_max, data_description, label='log_scale', show=show)
 
     """"""
 
@@ -417,20 +421,27 @@ class Cylinder(object):
 
     """"""
 
-    def make_heatmap(self, file_name, log=True, show=False):
+    def make_heatmap(self, file_name, v_max_plot, data_description, label, show=False):
+        # Initialize to keep Python from yelling about warnings
+        lid_to_plot = None
+        wall_to_plot = None
+        base_to_plot = None
+
         # Define data to plot
-        if log:
-            lid_to_plot = self.lid_log_counts
-            wall_to_plot = self.wall_log_counts
-            base_to_plot = self.base_log_counts
-            v_max_plot = self.counts_log_max
-            title_label = "log10"
-        else:
+        if label == 'raw':
             lid_to_plot = self.lid_counts
             wall_to_plot = self.wall_counts
             base_to_plot = self.base_counts
-            v_max_plot = self.counts_max
-            title_label = "Raw Simulation"
+        elif label == 'adjusted':
+            lid_to_plot = self.lid_pmt_counts
+            wall_to_plot = self.wall_pmt_counts
+            base_to_plot = self.base_pmt_counts
+        elif label == 'log_scale':
+            lid_to_plot = self.lid_log_counts
+            wall_to_plot = self.wall_log_counts
+            base_to_plot = self.base_log_counts
+        else:
+            print("Plot label not recognized.")
 
         # Initialize whole figure
         fig = plt.figure(figsize=(12, 12))
@@ -463,14 +474,16 @@ class Cylinder(object):
         base.set_rlabel_position(165)
         base.grid()
 
+        plot_title = 'Heatmap of Data Simulation using ' + label + ' data from ' + data_description
+        plt.title(plot_title)
+
         cbar_ax = fig.add_axes([0.8, 0.05, 0.05, 0.25])
         fig.colorbar(mid, cax=cbar_ax)
 
-        plt.title(title_label)
         plt.tight_layout()
         if show:
             plt.show()
-        plt.savefig(file_name + "_" + title_label)
+        plt.savefig(file_name + "_" + label)
         plt.close()
 
     """"""

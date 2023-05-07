@@ -22,6 +22,7 @@ phi_max = 2*np.pi           # radians
 # Define cos(th) directory
 use_pickle = True
 data_group = "22_07_08"
+pipe_label = "Pipe A"
 working_folder = "C:/Users/booth/PycharmProjects/wtce_tank_sim/"
 pickle_folder = working_folder + "pickle/"
 path_header = working_folder + data_group + "/"
@@ -77,11 +78,11 @@ mpmt_height_m = tank_height_m * 0  # * np.random.uniform(-0.5, 0.5)
 # Determine impact coordinates for each photon trajectory
 myTank.generate_impact_coords(photon_trajectories, mpmt_height_m)
 myTank.organize_data(stepsize=10**-2, pmt_eff=pmt_efficiency)
-"""
+
 # Create graphic
 graphic_file = path_header + "tank_sim"
-myTank.create_graphics(graphic_file)
-
+myTank.create_graphics(graphic_file, pipe_label)
+"""
 # Create Intensity distribution
 intensity_file = path_header + "tank_intensity"
 myTank.create_intensity(intensity_file, log=True)

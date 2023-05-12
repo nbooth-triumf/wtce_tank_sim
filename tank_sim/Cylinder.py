@@ -188,12 +188,12 @@ class Cylinder(object):
         r_elements = int(self.radius / self.stepsize)
         r_span = np.linspace(0, self.radius, r_elements)
 
-        alpha_elements = 3 * r_elements       # to scale wall x-axis appropriately
+        z_elements = int(self.height / self.stepsize)
+        z_span = np.linspace(-self.height / 2, self.height / 2, z_elements)
+
+        alpha_elements = 3 * z_elements       # to scale wall x-axis appropriately
         alpha_span = np.linspace(-np.pi, np.pi, alpha_elements)
         self.alpha_step = 2*np.pi / alpha_elements
-
-        z_elements = int(self.height / self.stepsize)
-        z_span = np.linspace(-self.height/2, self.height/2, z_elements)
 
         # Mesh
         self.lid_r, self.lid_a = np.meshgrid(r_span, alpha_span)
@@ -295,10 +295,13 @@ class Cylinder(object):
                 current_r = (i + 1) * self.stepsize
             for j in range(self.lid_shape[0]):
                 counts = lid_floats[j, i]
+                if counts != 0:
+                    # this is for troubleshooting
+                    stop_val = 420
                 detected_counts = counts * efficiency
                 bin_side_i = self.stepsize
-                bin_side_j = current_r * self.alpha_step      # arc length = r * theta
-                bin_area = bin_side_i * bin_side_j
+                bin_side_j = current_r * self.alpha_step        # arc length = r * theta
+                bin_area = bin_side_i * bin_side_j              # approximate as rectangle
                 area_ratio = self.pmt_area / bin_area
                 self.lid_pmt_counts[j, i] = detected_counts * area_ratio
 
@@ -374,11 +377,17 @@ class Cylinder(object):
         #  self.make_scatter_plot(scatter_name, show)
 
         # Standardize colour bars and create heatmaps for raw, adjusted, and log data
+        uniform = True      # For troubleshooting
         v_max = max(self.counts_max, self.counts_pmt_max, self.counts_log_max)
         heatmap_name = file_name + "_heatmap"
-        self.make_heatmap(heatmap_name, v_max, data_description, label='raw', show=show)
-        self.make_heatmap(heatmap_name, v_max, data_description, label='adjusted', show=show)
-        self.make_heatmap(heatmap_name, v_max, data_description, label='log_scale', show=show)
+        if uniform:
+            self.make_heatmap(heatmap_name, v_max, data_description, label='raw', show=show)
+            self.make_heatmap(heatmap_name, v_max, data_description, label='adjusted', show=show)
+            self.make_heatmap(heatmap_name, v_max, data_description, label='log_scale', show=show)
+        else:
+            self.make_heatmap(heatmap_name, self.counts_max, data_description, label='raw', show=show)
+            self.make_heatmap(heatmap_name, self.counts_pmt_max, data_description, label='adjusted', show=show)
+            self.make_heatmap(heatmap_name, self.counts_log_max, data_description, label='log_scale', show=show)
 
     """"""
 
@@ -445,6 +454,8 @@ class Cylinder(object):
 
         # Initialize whole figure
         fig = plt.figure(figsize=(12, 12))
+        plot_title = 'Heatmap of Data Simulation using ' + label + ' data from ' + data_description
+        plt.title(plot_title)
 
         lid = plt.subplot2grid((3, 3), (0, 1), projection='polar')
         wall = plt.subplot2grid((3, 3), (1, 0), colspan=3)
@@ -473,9 +484,6 @@ class Cylinder(object):
         base.tick_params(axis='y', colors='orange')
         base.set_rlabel_position(165)
         base.grid()
-
-        plot_title = 'Heatmap of Data Simulation using ' + label + ' data from ' + data_description
-        plt.title(plot_title)
 
         cbar_ax = fig.add_axes([0.8, 0.05, 0.05, 0.25])
         fig.colorbar(mid, cax=cbar_ax)

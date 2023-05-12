@@ -13,14 +13,14 @@ dynamic_min = 0             # photons
 dynamic_max = 50            # photons
 
 # Define knowns (from data and experiments)
-num_photons = 1 * 10**6     # one million photons as default
+num_photons = 1 * 10**8     # one million photons as default
 cos_th_min = 0.5            # dimensionless
 cos_th_max = 1.0            # dimensionless
 phi_min = 0                 # radians
 phi_max = 2*np.pi           # radians
 
 # Define cos(th) directory
-use_pickle = True
+use_pickle = False
 data_group = "22_07_08"
 pipe_label = "Pipe A"
 working_folder = "C:/Users/booth/PycharmProjects/wtce_tank_sim/"

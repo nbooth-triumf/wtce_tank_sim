@@ -20,7 +20,7 @@ phi_min = 0                 # radians
 phi_max = 2*np.pi           # radians
 
 # Define cos(th) directory
-use_pickle = False
+use_pickle = True
 data_group = "22_07_08"
 pipe_label = "Pipe A"
 working_folder = "C:/Users/booth/PycharmProjects/wtce_tank_sim/"

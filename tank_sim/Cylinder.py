@@ -295,9 +295,6 @@ class Cylinder(object):
                 current_r = (i + 1) * self.stepsize
             for j in range(self.lid_shape[0]):
                 counts = lid_floats[j, i]
-                if counts != 0:
-                    # this is for troubleshooting
-                    stop_val = 420
                 detected_counts = counts * efficiency
                 bin_side_i = self.stepsize
                 bin_side_j = current_r * self.alpha_step        # arc length = r * theta
@@ -377,7 +374,7 @@ class Cylinder(object):
         #  self.make_scatter_plot(scatter_name, show)
 
         # Standardize colour bars and create heatmaps for raw, adjusted, and log data
-        uniform = True      # For troubleshooting
+        uniform = False      # For troubleshooting
         v_max = max(self.counts_max, self.counts_pmt_max, self.counts_log_max)
         heatmap_name = file_name + "_heatmap"
         if uniform:

@@ -368,6 +368,10 @@ class Cylinder(object):
 
     """"""
 
+    # ADD PICKLE FUNCTION AND MOVE PLOTTING TO NEW OBJECT
+
+    """"""
+
     def create_graphics(self, file_name, data_description, show=False):
         # Plot scatter plot of simulation
         scatter_name = file_name + "_scatter"

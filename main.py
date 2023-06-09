@@ -6,9 +6,9 @@ from tank_sim.Cylinder import Cylinder
 from tank_sim.Graphics import Graphics
 
 # Directions
-make_projectiles = False
-make_cylinder = False
-open_object = 'cylinder'
+make_projectiles = True
+make_cylinder = True
+open_object = ''
 save_object = ''
 
 # Define parameters of experiment being simulated (from 2021.3.31 WTCE Proposal pg 30 and others)
@@ -27,8 +27,8 @@ phi_min = 0                 # radians
 phi_max = 2*np.pi           # radians
 
 # Define cos(th) directory
-data_group = "22_07_08"
-pipe_label = "Pipe A"
+data_group = "22_08_17b"
+pipe_label = "Pipe C"
 working_folder = "C:/Users/booth/PycharmProjects/wtce_tank_sim/"
 pickle_folder = working_folder + "pickle/"
 path_header = working_folder + data_group + "/"
@@ -40,11 +40,26 @@ description_projectile = "Direction Information for simulated Photons"
 myPhotons = Projectiles(description_projectile, num_photons, cos_th_min, cos_th_max, phi_min, phi_max)
 myTank = Cylinder(tank_height_m, tank_diam_m, pmt_eff_area)
 
-if make_projectiles:
-    # Empty pickle folder to avoid memory issues
-    for f in os.listdir(pickle_folder):
-        os.remove(os.path.join(pickle_folder, f))
+""""""
 
+if open_object == 'projectiles':
+    # Open pickle file
+    myPhotons = Projectiles.open_projectiles(pickle_folder + "projectiles.p")
+    print("photon pickle opened successfully")
+
+elif open_object == 'cylinder':
+    # Open pickle file
+    myTank = Cylinder.open_cylinder(pickle_folder + "cylinder.p")
+    print("tank pickle opened successfully")
+else:
+    print("Will not open any pickle files.")
+    # if not opening anything nor making anything
+    if not make_projectiles and not make_cylinder:
+        print("Directions incompatible with procedures. Please try different directions.")
+
+""""""
+
+if make_projectiles:
     # Combine all files in directory into full histogram
     histCosTh = Histogram(description_cos_th, cos_th_folder)
     histCosTh.combine_files()
@@ -72,17 +87,17 @@ if make_projectiles:
     myPhotons.generate_direction_coords(pdf_cos_th=histCosTh.normalized)
 
     if save_object == 'projectiles':
+        # Empty pickle folder to avoid memory issues
+        for f in os.listdir(pickle_folder):
+            os.remove(os.path.join(pickle_folder, f))
+
         # Save photons object
         myPhotons.save_projectiles(pickle_folder + "projectiles.p")
         print("photon pickle saved successfully")
 
 """"""
 
-if make_projectiles:
-    # Empty pickle folder to avoid memory issues
-    for f in os.listdir(pickle_folder):
-        os.remove(os.path.join(pickle_folder, f))
-
+if make_cylinder:
     # Place detector
     mpmt_height_m = tank_height_m * 0  # * np.random.uniform(-0.5, 0.5)
 
@@ -91,23 +106,13 @@ if make_projectiles:
     myTank.organize_data(stepsize=10**-2, pmt_eff=pmt_efficiency)
 
     if save_object == 'cylinder':
+        # Empty pickle folder to avoid memory issues
+        for f in os.listdir(pickle_folder):
+            os.remove(os.path.join(pickle_folder, f))
+
         # Save pickle
         myTank.save_cylinder(pickle_folder + "cylinder.p")
         print("tank pickle saved successfully")
-
-""""""
-
-if open_object == 'projectiles':
-    # Open pickle file
-    myPhotons = Projectiles.open_projectiles(pickle_folder + "projectiles.p")
-    print("photon pickle opened successfully")
-
-elif open_object == 'cylinder':
-    # Open pickle file
-    myTank = Cylinder.open_cylinder(pickle_folder + "cylinder.p")
-    print("tank pickle opened successfully")
-else:
-    print("Directions incompatible with procedures. Please try different directions.")
 
 """"""
 
@@ -115,9 +120,8 @@ else:
 myGraphics = Graphics(myTank)
 graphic_file = path_header + "tank_sim"
 myGraphics.create_graphics(graphic_file, pipe_label)
-"""
+
 # Create Intensity distribution
 intensity_file = path_header + "tank_intensity"
-myTank.create_intensity(intensity_file, log=True)
-myTank.create_intensity(intensity_file, log=False)
-"""
+myGraphics.create_intensity(intensity_file, data_group, pipe_label, log=False)
+myGraphics.create_intensity(intensity_file, data_group, pipe_label, log=True)

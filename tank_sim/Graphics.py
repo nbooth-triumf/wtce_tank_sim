@@ -17,6 +17,10 @@ class Graphics(object):
         self.radius = myCylinder.radius
         self.z_limit = myCylinder.z_limit
 
+        self.lid_areas = myCylinder.lid_pmt_areas
+        self.wall_areas = myCylinder.wall_pmt_areas
+        self.base_areas = myCylinder.base_pmt_areas
+
         self.lid_counts = myCylinder.lid_counts
         self.wall_counts = myCylinder.wall_counts
         self.base_counts = myCylinder.base_counts
@@ -45,6 +49,8 @@ class Graphics(object):
 
         self.intensities = []
         self.log_intensities = []
+        self.weights = []
+        self.log_weights = []
 
     """"""
 
@@ -107,11 +113,12 @@ class Graphics(object):
 
     """"""
 
-    def make_heatmap(self, file_name, v_max_plot, data_description, label, show=False):
+    def make_heatmap(self, file_name, v_max, data_description, label, show=False):
         # Initialize to keep Python from yelling about warnings
         lid_to_plot = None
         wall_to_plot = None
         base_to_plot = None
+        v_max_plot = v_max
 
         # Define data to plot
         if label == 'raw':
@@ -119,9 +126,11 @@ class Graphics(object):
             wall_to_plot = self.wall_counts
             base_to_plot = self.base_counts
         elif label == 'adjusted':
-            lid_to_plot = self.lid_pmt_counts
-            wall_to_plot = self.wall_pmt_counts
-            base_to_plot = self.base_pmt_counts
+            # Convert to counts per square centimetre
+            lid_to_plot = self.lid_pmt_counts / 10**4
+            wall_to_plot = self.wall_pmt_counts / 10**4
+            base_to_plot = self.base_pmt_counts / 10**4
+            v_max_plot = v_max / 10**4
         elif label == 'log_scale':
             lid_to_plot = self.lid_log_counts
             wall_to_plot = self.wall_log_counts
@@ -206,69 +215,91 @@ class Graphics(object):
 
     """"""
 
-    def create_intensity(self, file_name, log=True, show=False):
+    def create_intensity(self, file_name, data_group, pipe_label, log, show=False):
         if log:
-            self.log_intensity(file_name + "_log", show=show)
+            self.log_intensity(file_name + "_log", data_group, pipe_label, show)
         else:
-            self.raw_intensity(file_name, show=show)
+            self.pmt_intensity(file_name, data_group, pipe_label, show)
 
     """"""
 
-    def raw_intensity(self, file_name, show=False):
+    def pmt_intensity(self, file_name, data_group, pipe_label, show=False):
         # Extract data
-        for n in range(len(self.lid_counts)):
-            for m in range(len(self.lid_counts[n])):
-                counts = int(self.lid_counts[n][m])
+        for n in range(len(self.lid_pmt_counts)):
+            for m in range(len(self.lid_pmt_counts[n])):
+                # convert to counts per square centimetre
+                counts = int(self.lid_pmt_counts[n][m]) / 10**4
+                area = self.lid_areas[n][m] * 10**4
                 if counts != 0:
                     self.intensities.append(counts)
+                    self.weights.append(area)
 
-        for n in range(len(self.wall_counts)):
-            for m in range(len(self.wall_counts[n])):
-                counts = int(self.wall_counts[n][m])
+        for n in range(len(self.wall_pmt_counts)):
+            for m in range(len(self.wall_pmt_counts[n])):
+                # convert to counts per square centimetre
+                counts = int(self.wall_pmt_counts[n][m]) / 10**4
+                area = self.wall_areas[n][m] * 10**4
                 if counts != 0:
                     self.intensities.append(counts)
+                    self.weights.append(area)
 
-        for n in range(len(self.base_counts)):
-            for m in range(len(self.base_counts[n])):
-                counts = int(self.base_counts[n][m])
+        for n in range(len(self.base_pmt_counts)):
+            for m in range(len(self.base_pmt_counts[n])):
+                # convert to counts per square centimetre
+                counts = int(self.base_pmt_counts[n][m]) / 10**4
+                area = self.base_areas[n][m] * 10**4
                 if counts != 0:
                     self.intensities.append(counts)
+                    self.weights.append(area)
 
         # Plot
         fig = plt.figure()
-        plt.hist(self.intensities)
+        plt.hist(x=self.intensities, weights=self.weights)
         plt.xlim(left=0)
         plt.ylim(bottom=0)
-        plt.title('Intensity Histogram')
-        plt.xlabel('Number of Photons')
+        plt.title('Intensity Histogram for ' + pipe_label)
+        plt.xlabel('Number of Photons per cm')
         plt.ylabel('Number of Bins')
         plt.grid()
         if show:
             fig.show()
-        fig.savefig(file_name)
+        to_save = file_name + '_' + data_group
+        fig.savefig(to_save)
         plt.close(fig)
 
     """"""
 
-    def log_intensity(self, file_name, show=False):
+    def log_intensity(self, file_name, data_group, pipe_label, show=False):
         # Extract data
         for n in range(len(self.lid_log_counts)):
             for m in range(len(self.lid_log_counts[n])):
-                counts = self.lid_log_counts[n][m]
+                log_counts = self.lid_log_counts[n][m]
+                bin_area = self.lid_areas[n][m]
+                counts = (log_counts / bin_area) / 10**4
+                area = bin_area * 10**4
                 if counts != 0:
                     self.log_intensities.append(counts)
+                    self.log_weights.append(area)
 
         for n in range(len(self.wall_log_counts)):
             for m in range(len(self.wall_log_counts[n])):
-                counts = self.wall_log_counts[n][m]
+                log_counts = self.wall_log_counts[n][m]
+                bin_area = self.wall_areas[n][m]
+                counts = (log_counts / bin_area) / 10**4
+                area = bin_area * 10**4
                 if counts != 0:
                     self.log_intensities.append(counts)
+                    self.log_weights.append(area)
 
         for n in range(len(self.base_log_counts)):
             for m in range(len(self.base_log_counts[n])):
-                counts = self.base_log_counts[n][m]
+                log_counts = self.base_log_counts[n][m]
+                bin_area = self.base_areas[n][m]
+                counts = (log_counts / bin_area) / 10**4
+                area = bin_area * 10**4
                 if counts != 0:
                     self.log_intensities.append(counts)
+                    self.log_weights.append(area)
 
         # Bins
         log_step = 0.1
@@ -277,16 +308,17 @@ class Graphics(object):
 
         # Plot
         fig = plt.figure()
-        plt.hist(self.log_intensities, bins=bins)
-        plt.xlim([0, np.log10(self.num_photons)])
+        plt.hist(x=self.log_intensities, bins=bins, weights=self.log_weights)
+        plt.xlim([0, max_log])
         plt.ylim(bottom=0)
-        plt.title('Log10 Intensity Histogram')
-        plt.xlabel('Log10 of Number of Photons')
+        plt.title('Log10 Intensity Histogram for ' + pipe_label)
+        plt.xlabel('Log10 of Number of Photons per cm')
         plt.ylabel('Number of Bins')
         plt.grid()
         if show:
             fig.show()
-        fig.savefig(file_name)
+        to_save = file_name + '_' + data_group
+        fig.savefig(to_save)
         plt.close(fig)
 
     """"""

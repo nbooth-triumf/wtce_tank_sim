@@ -42,16 +42,19 @@ class Cylinder(object):
         self.lid_counts = None
         self.lid_shape = None
         self.lid_pmt_counts = None
+        self.lid_pmt_areas = None
         self.lid_log_counts = None
 
         self.wall_counts = None
         self.wall_shape = None
         self.wall_pmt_counts = None
+        self.wall_pmt_areas = None
         self.wall_log_counts = None
 
         self.base_counts = None
         self.base_shape = None
         self.base_pmt_counts = None
+        self.base_pmt_areas = None
         self.base_log_counts = None
 
         self.counts_max = None
@@ -266,8 +269,11 @@ class Cylinder(object):
     def get_pmt_counts(self, efficiency):
         # Initialize
         self.lid_pmt_counts = np.zeros(self.lid_shape)
+        self.lid_pmt_areas = np.zeros(self.lid_shape)
         self.wall_pmt_counts = np.zeros(self.wall_shape)
+        self.wall_pmt_areas = np.zeros(self.wall_shape)
         self.base_pmt_counts = np.zeros(self.base_shape)
+        self.base_pmt_areas = np.zeros(self.base_shape)
 
         # Convert to counts per pmt using pmt efficiency and effective area
         self.convert_to_pmt_counts(efficiency)
@@ -282,7 +288,7 @@ class Cylinder(object):
 
     def convert_to_pmt_counts(self, efficiency):
         # For each bin, determine number of counts seen by pmt using pmt efficiency, then the effective
-        # area of the bin, then the number of counts per pmt using the pmt area
+        # area of the bin, then the number of counts per unit area of the bin
 
         # Lid -> lid_shape = [alpha, r]
         lid_floats = self.lid_counts.astype('float64')
@@ -296,11 +302,11 @@ class Cylinder(object):
             for j in range(self.lid_shape[0]):
                 counts = lid_floats[j, i]
                 detected_counts = counts * efficiency
-                bin_side_i = self.stepsize
-                bin_side_j = current_r * self.alpha_step        # arc length = r * theta
-                bin_area = bin_side_i * bin_side_j              # approximate as rectangle
-                area_ratio = self.pmt_area / bin_area
-                self.lid_pmt_counts[j, i] = detected_counts * area_ratio
+                outer_circle = np.pi * current_r**2
+                inner_circle = np.pi * (current_r - self.stepsize)**2
+                bin_area = (self.alpha_step / 2*np.pi) * (outer_circle - inner_circle)
+                self.lid_pmt_areas[j, i] = bin_area
+                self.lid_pmt_counts[j, i] = detected_counts / bin_area
 
         # Wall -> wall_shape = [z, alpha]
         wall_floats = self.wall_counts.astype('float64')
@@ -311,8 +317,8 @@ class Cylinder(object):
                 bin_side_i = self.radius * self.alpha_step
                 bin_side_j = self.stepsize
                 bin_area = bin_side_i * bin_side_j
-                area_ratio = self.pmt_area / bin_area
-                self.wall_pmt_counts[j, i] = detected_counts * area_ratio
+                self.wall_pmt_areas[j, i] = bin_area
+                self.wall_pmt_counts[j, i] = detected_counts / bin_area
 
         # Base -> base_shape = [alpha, r]
         base_floats = self.base_counts.astype('float64')
@@ -326,11 +332,11 @@ class Cylinder(object):
             for j in range(self.base_shape[0]):
                 counts = base_floats[j, i]
                 detected_counts = counts * efficiency
-                bin_side_i = self.stepsize
-                bin_side_j = current_r * self.alpha_step        # arc length = r * theta
-                bin_area = bin_side_i * bin_side_j
-                area_ratio = self.pmt_area / bin_area
-                self.base_pmt_counts[j, i] = detected_counts * area_ratio
+                outer_circle = np.pi * current_r ** 2
+                inner_circle = np.pi * (current_r - self.stepsize) ** 2
+                bin_area = (self.alpha_step / 2 * np.pi) * (outer_circle - inner_circle)
+                self.base_pmt_areas[j, i] = bin_area
+                self.base_pmt_counts[j, i] = detected_counts / bin_area
 
     """"""
 

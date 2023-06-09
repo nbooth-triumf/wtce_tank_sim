@@ -54,7 +54,10 @@ class Graphics(object):
 
     """"""
 
-    def create_graphics(self, file_name, data_description, show=False):
+    def create_graphics(self, file_name, data_group, pipe_label, show=False):
+        # Increase graphics font to improve figure legibility
+        plt.rcParams.update({'font.size': 15})
+
         # Plot scatter plot of simulation
         scatter_name = file_name + "_scatter"
         #  self.make_scatter_plot(scatter_name, show)
@@ -64,13 +67,16 @@ class Graphics(object):
         v_max = max(self.counts_max, self.counts_pmt_max, self.counts_log_max)
         heatmap_name = file_name + "_heatmap"
         if uniform:
-            self.make_heatmap(heatmap_name, v_max, data_description, label='raw', show=show)
-            self.make_heatmap(heatmap_name, v_max, data_description, label='adjusted', show=show)
-            self.make_heatmap(heatmap_name, v_max, data_description, label='log_scale', show=show)
+            self.make_heatmap(heatmap_name, v_max, data_group, pipe_label, label='raw', show=show)
+            self.make_heatmap(heatmap_name, v_max, data_group, pipe_label, label='adjusted', show=show)
+            self.make_heatmap(heatmap_name, v_max, data_group, pipe_label, label='log_scale', show=show)
         else:
-            self.make_heatmap(heatmap_name, self.counts_max, data_description, label='raw', show=show)
-            self.make_heatmap(heatmap_name, self.counts_pmt_max, data_description, label='adjusted', show=show)
-            self.make_heatmap(heatmap_name, self.counts_log_max, data_description, label='log_scale', show=show)
+            self.make_heatmap(heatmap_name, self.counts_max,
+                              data_group, pipe_label, label='raw', show=show)
+            self.make_heatmap(heatmap_name, self.counts_pmt_max,
+                              data_group, pipe_label, label='adjusted', show=show)
+            self.make_heatmap(heatmap_name, self.counts_log_max,
+                              data_group, pipe_label, label='log_scale', show=show)
 
     """"""
 
@@ -113,12 +119,14 @@ class Graphics(object):
 
     """"""
 
-    def make_heatmap(self, file_name, v_max, data_description, label, show=False):
+    def make_heatmap(self, file_name, v_max, data_group, pipe_label, label, show=False):
         # Initialize to keep Python from yelling about warnings
         lid_to_plot = None
         wall_to_plot = None
         base_to_plot = None
+        v_min = 0
         v_max_plot = v_max
+
 
         # Define data to plot
         if label == 'raw':
@@ -140,16 +148,17 @@ class Graphics(object):
 
         # Initialize whole figure
         fig = plt.figure(figsize=(12, 12))
-        plot_title = 'Heatmap of Data Simulation using ' + label + ' data from ' + data_description
-        plt.title(plot_title)
 
         lid = plt.subplot2grid((3, 3), (0, 1), projection='polar')
         wall = plt.subplot2grid((3, 3), (1, 0), colspan=3)
         base = plt.subplot2grid((3, 3), (2, 1), projection='polar')
 
+        plot_title = 'Heatmap of Data Simulation using ' + label + ' data from ' + pipe_label
+        # plt.title(plot_title)
+
         # Create lid subplot
         lid.set_theta_zero_location("S")
-        lid.pcolormesh(self.lid_a, self.lid_r, lid_to_plot, vmin=0, vmax=v_max_plot, cmap='viridis')
+        lid.pcolormesh(self.lid_a, self.lid_r, lid_to_plot, vmin=v_min, vmax=v_max_plot, cmap='viridis')
         self.convert_polar_xticks_to_radians(lid)
         lid.set_rticks(np.arange(0, self.radius, 500))
         lid.tick_params(axis='y', colors='orange')
@@ -157,14 +166,14 @@ class Graphics(object):
         lid.grid()
 
         # Create wall subplot
-        mid = wall.imshow(wall_to_plot, vmin=0, vmax=v_max_plot, cmap='viridis')
+        mid = wall.imshow(wall_to_plot, vmin=v_min, vmax=v_max_plot, cmap='viridis')
         wall.set_ylim(wall.get_ylim()[::-1])
         wall.grid()
 
         # Create base subplot
         base.set_theta_zero_location("N")
         base.set_theta_direction(-1)
-        base.pcolormesh(self.base_a, self.base_r, base_to_plot, vmin=0, vmax=v_max_plot, cmap='viridis')
+        base.pcolormesh(self.base_a, self.base_r, base_to_plot, vmin=v_min, vmax=v_max_plot, cmap='viridis')
         self.convert_polar_xticks_to_radians(base)
         base.set_rticks(np.arange(0, self.radius, 500))
         base.tick_params(axis='y', colors='orange')
@@ -175,9 +184,10 @@ class Graphics(object):
         fig.colorbar(mid, cax=cbar_ax)
 
         plt.tight_layout()
+
         if show:
             plt.show()
-        plt.savefig(file_name + "_" + label)
+        plt.savefig(file_name + "_" + label + '_' + data_group)
         plt.close()
 
     """"""
@@ -211,11 +221,15 @@ class Graphics(object):
 
         # Keep xtick locations the same but change labels to new labels
         ax.set_xticks(label_positions)
+        ax.tick_params(pad=15)
         ax.set_xticklabels(labels)
 
     """"""
 
     def create_intensity(self, file_name, data_group, pipe_label, log, show=False):
+        # Increase graphics font to improve figure legibility
+        plt.rcParams.update({'font.size': 10})
+
         if log:
             self.log_intensity(file_name + "_log", data_group, pipe_label, show)
         else:

@@ -48,9 +48,22 @@ class Graphics(object):
         self.base_r = myCylinder.base_r
 
         self.intensities = []
+        self.lid_inten = []
+        self.wall_inten = []
+        self.base_inten = []
         self.log_intensities = []
+        self.lid_log_inten = []
+        self.wall_log_inten = []
+        self.base_log_inten = []
+
         self.weights = []
+        self.lid_weights = []
+        self.wall_weights = []
+        self.base_weights = []
         self.log_weights = []
+        self.lid_log_weights = []
+        self.wall_log_weights = []
+        self.base_log_weights = []
 
     """"""
 
@@ -245,8 +258,11 @@ class Graphics(object):
                 counts = int(self.lid_pmt_counts[n][m]) / 10**4
                 area = self.lid_areas[n][m] * 10**4
                 if counts != 0:
-                    self.intensities.append(counts)
-                    self.weights.append(area)
+                    self.lid_inten.append(counts)
+                    self.lid_weights.append(area)
+
+        self.intensities.extend(self.lid_inten)
+        self.weights.extend(self.lid_weights)
 
         for n in range(len(self.wall_pmt_counts)):
             for m in range(len(self.wall_pmt_counts[n])):
@@ -254,8 +270,11 @@ class Graphics(object):
                 counts = int(self.wall_pmt_counts[n][m]) / 10**4
                 area = self.wall_areas[n][m] * 10**4
                 if counts != 0:
-                    self.intensities.append(counts)
-                    self.weights.append(area)
+                    self.wall_inten.append(counts)
+                    self.wall_weights.append(area)
+
+        self.intensities.extend(self.wall_inten)
+        self.weights.extend(self.wall_weights)
 
         for n in range(len(self.base_pmt_counts)):
             for m in range(len(self.base_pmt_counts[n])):
@@ -263,10 +282,58 @@ class Graphics(object):
                 counts = int(self.base_pmt_counts[n][m]) / 10**4
                 area = self.base_areas[n][m] * 10**4
                 if counts != 0:
-                    self.intensities.append(counts)
-                    self.weights.append(area)
+                    self.base_inten.append(counts)
+                    self.base_weights.append(area)
 
-        # Plot
+        self.intensities.extend(self.base_inten)
+        self.weights.extend(self.base_weights)
+
+        # Plot lid
+        fig = plt.figure()
+        plt.hist(x=self.lid_inten, weights=self.lid_weights)
+        plt.xlim(left=0)
+        plt.ylim(bottom=0)
+        plt.title('Intensity Histogram for lid of ' + pipe_label)
+        plt.xlabel('Number of Photons per cm')
+        plt.ylabel('Number of Bins')
+        plt.grid()
+        if show:
+            fig.show()
+        to_save = file_name + '_lid_' + data_group
+        fig.savefig(to_save)
+        plt.close(fig)
+
+        # Plot wall
+        fig = plt.figure()
+        plt.hist(x=self.wall_inten, weights=self.wall_weights)
+        plt.xlim(left=0)
+        plt.ylim(bottom=0)
+        plt.title('Intensity Histogram for wall of ' + pipe_label)
+        plt.xlabel('Number of Photons per cm')
+        plt.ylabel('Number of Bins')
+        plt.grid()
+        if show:
+            fig.show()
+        to_save = file_name + '_wall_' + data_group
+        fig.savefig(to_save)
+        plt.close(fig)
+
+        # Plot base
+        fig = plt.figure()
+        plt.hist(x=self.base_inten, weights=self.base_weights)
+        plt.xlim(left=0)
+        plt.ylim(bottom=0)
+        plt.title('Intensity Histogram for base of ' + pipe_label)
+        plt.xlabel('Number of Photons per cm')
+        plt.ylabel('Number of Bins')
+        plt.grid()
+        if show:
+            fig.show()
+        to_save = file_name + '_base_' + data_group
+        fig.savefig(to_save)
+        plt.close(fig)
+
+        # Plot full cylinder
         fig = plt.figure()
         plt.hist(x=self.intensities, weights=self.weights)
         plt.xlim(left=0)
@@ -292,8 +359,11 @@ class Graphics(object):
                 counts = (log_counts / bin_area) / 10**4
                 area = bin_area * 10**4
                 if counts != 0:
-                    self.log_intensities.append(counts)
-                    self.log_weights.append(area)
+                    self.lid_log_inten.append(counts)
+                    self.lid_log_weights.append(area)
+
+        self.log_intensities.extend(self.lid_log_inten)
+        self.log_weights.extend(self.lid_log_weights)
 
         for n in range(len(self.wall_log_counts)):
             for m in range(len(self.wall_log_counts[n])):
@@ -302,8 +372,11 @@ class Graphics(object):
                 counts = (log_counts / bin_area) / 10**4
                 area = bin_area * 10**4
                 if counts != 0:
-                    self.log_intensities.append(counts)
-                    self.log_weights.append(area)
+                    self.wall_log_inten.append(counts)
+                    self.wall_log_weights.append(area)
+
+        self.log_intensities.extend(self.wall_log_inten)
+        self.log_weights.extend(self.wall_log_weights)
 
         for n in range(len(self.base_log_counts)):
             for m in range(len(self.base_log_counts[n])):
@@ -312,15 +385,63 @@ class Graphics(object):
                 counts = (log_counts / bin_area) / 10**4
                 area = bin_area * 10**4
                 if counts != 0:
-                    self.log_intensities.append(counts)
-                    self.log_weights.append(area)
+                    self.base_log_inten.append(counts)
+                    self.base_log_weights.append(area)
+
+        self.log_intensities.extend(self.base_log_inten)
+        self.log_weights.extend(self.base_log_weights)
 
         # Bins
         log_step = 0.1
         max_log = int(np.ceil(np.max(self.log_intensities)))
         bins = np.arange(0, max_log, log_step)
 
-        # Plot
+        # Plot lid
+        fig = plt.figure()
+        plt.hist(x=self.lid_log_inten, bins=bins, weights=self.lid_log_weights)
+        plt.xlim([0, max_log])
+        plt.ylim(bottom=0)
+        plt.title('Log10 Intensity Histogram for lid of ' + pipe_label)
+        plt.xlabel('Log10 of Number of Photons per cm')
+        plt.ylabel('Number of Bins')
+        plt.grid()
+        if show:
+            fig.show()
+        to_save = file_name + '_lid_' + data_group
+        fig.savefig(to_save)
+        plt.close(fig)
+
+        # Plot wall
+        fig = plt.figure()
+        plt.hist(x=self.wall_log_inten, bins=bins, weights=self.wall_log_weights)
+        plt.xlim([0, max_log])
+        plt.ylim(bottom=0)
+        plt.title('Log10 Intensity Histogram for wall of ' + pipe_label)
+        plt.xlabel('Log10 of Number of Photons per cm')
+        plt.ylabel('Number of Bins')
+        plt.grid()
+        if show:
+            fig.show()
+        to_save = file_name + '_wall_' + data_group
+        fig.savefig(to_save)
+        plt.close(fig)
+
+        # Plot base
+        fig = plt.figure()
+        plt.hist(x=self.base_log_inten, bins=bins, weights=self.base_log_weights)
+        plt.xlim([0, max_log])
+        plt.ylim(bottom=0)
+        plt.title('Log10 Intensity Histogram for base of ' + pipe_label)
+        plt.xlabel('Log10 of Number of Photons per cm')
+        plt.ylabel('Number of Bins')
+        plt.grid()
+        if show:
+            fig.show()
+        to_save = file_name + '_base_' + data_group
+        fig.savefig(to_save)
+        plt.close(fig)
+
+        # Plot full cylinder
         fig = plt.figure()
         plt.hist(x=self.log_intensities, bins=bins, weights=self.log_weights)
         plt.xlim([0, max_log])

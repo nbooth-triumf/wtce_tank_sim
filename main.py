@@ -27,8 +27,8 @@ phi_min = 0                 # radians
 phi_max = 2*np.pi           # radians
 
 # Define cos(th) directory
-data_group = "22_07_08"
-pipe_label = "Pipe A"
+data_group = "22_08_17b"
+pipe_label = "Pipe C"
 working_folder = "C:/Users/booth/PycharmProjects/wtce_tank_sim/"
 pickle_folder = working_folder + "pickle/"
 path_header = working_folder + data_group + "/"
